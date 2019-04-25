@@ -5,6 +5,9 @@ module.exports = ({ head, body, title }) => html`
   <html lang="en">
     <head>
       <title>${title}</title>
+
+      <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
       <link rel="stylesheet" href="main.css">
       ${head}
     </head>

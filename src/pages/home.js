@@ -56,6 +56,11 @@ module.exports = class Home extends Page {
     return html`
       <div class="main-container">
         <div class="tool-bar">
+          <div class="icon-button">edit</div>
+          <div class="icon-button">brush</div>
+          <div class="icon-button">colorize</div>
+          <div style="flex: 1;"></div>
+          <div class="icon-button">save</div>
         </div>
         <div class="canvas-container">
           <div class="canvas-plane">
