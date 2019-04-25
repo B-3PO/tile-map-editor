@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Home</title>
+    <link rel="stylesheet" href="main.css">
+    <script>
+      
+        window.html = function (strings, ...expressionValues) {
+          let finalString = '';
+          let i = 0;
+          let length = strings.length;
+          for(; i < length; i++) {
+            if (i > 0) finalString += expressionValues[i - 1];
+            finalString += strings[i];
+          }
+          return finalString;
+        };
+        window.stripIndents = function (strings, ...expressionValues) {
+          let finalString = '';
+          let i = 0;
+          let length = strings.length;
+          for(; i < length; i++) {
+            if (i > 0) finalString += expressionValues[i - 1];
+            finalString += strings[i];
+          }
+          const match = finalString.match(/^[^\S\n]*(?=\S)/gm);
+          const indent = match && Math.min(...match.map(el => el.length));
+          if (indent) {
+            const regexp2 = new RegExp('^.{'+indent+'}', 'gm');
+            return finalString.replace(regexp2, '');
+          }
+          return finalString;
+        };
+        window.escapeHTML = function (html) {
+          return html.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        };
+        window.htmlSafe = window.html;
+        window.css = window.html;
+        window.stripIndent = window.html;
+        window.oneLine = window.html;
+        window.oneLineTrim = window.html;
+      
+      
+      const router = new class Router {
+        constructor(routes) {
+          this.routes = routes;
+          if (this.routes['/404']) this._notFountRoute = this.routes['/404'];
+      
+          this.PARAMETER_REGEXP = /([:*])(\w+)/g;
+          this.WILDCARD_REGEXP = /\*/g;
+          this.REPLACE_VARIABLE_REGEXP = '([^\/]+)';
+          this.REPLACE_WILDCARD = '(?:.*)';
+          this.FOLLOWED_BY_SLASH_REGEXP = '(?:\/$|$)';
+          this.MATCH_REGEXP_FLAGS = '';
+      
+          window.addEventListener('hashchange', this.resolve.bind(this));
+          window.addEventListener('DOMContentLoaded', () => {
+            this.resolve();
+          });
+        }
+      
+        resolve() {
+          const path = this.path();
+          const match = this.match(path);
+      
+          if (match === false) {
+            if (this._notFountRoute) return this.changePage(this._notFountRoute);
+            else return console.warn('no page found and no default not found page setup');
+          }
+      
+          let url = path;
+          let GETParameters = this.extractGETParameters(this.getCurrent());
+          if (GETParameters) url += `?${GETParameters}`;
+          window.location.hash = url;
+          return this.changePage(match.className);
+        }
+      
+        changePage(className) {
+          // disconnect current page before rendering next one
+          if (window.currentPageClass.disconnectedCallback) window.currentPageClass.disconnectedCallback();
+      
+          const id = '$'+className;
+          window[id] = eval('new ' + className + '()');
+          window.currentPageClass = window[id];
+          window[id].render();
+          const pageTitle = document.querySelector('title');
+          if (pageTitle) pageTitle.innerText = window[id].title;
+          setTimeout(() => {
+            if (window[id].connectedCallback) window[id].connectedCallback();
+          }, 0);
+        }
+      
+        path() {
+          let path = window.location.hash.replace(/.*#/, '');
+          if (path.includes('?')) path = path.split('?')[0];
+          if (path.charAt(0) !== '/') { path = '/'+path; }
+          return path;
+        }
+      
+        getCurrent() {
+          return this.clean(window.location.href);
+        }
+      
+        clean(str) {
+          if (str instanceof RegExp) return s;
+          return str.replace(/\/+$/, '').replace(/^\/+/, '/');
+        }
+      
+        extractGETParameters(url) {
+          return url.split(/\?(.*)?$/).slice(1).join('');
+        }
+      
+        getParameters() {
+          return this.extractGETParameters(this.getCurrent()).split(',').filter(a => !!a).reduce((a, b) => {
+            const split = b.split('=');
+            a[split[0]] = split[1];
+            return a;
+          }, {});
+        }
+      
+        getParameter(name) {
+          return this.getParameters()[name];
+        }
+      
+        addParameter(name, value) {
+          const url = this.getCurrent();
+          const parameters = this.getParameters();
+          parameters[name] = value;
+          window.location.href = window.location.href.split('?')[0] + '?' + Object.keys(parameters).map(key => `${key}=${parameters[key]}`).join(',');
+        }
+      
+        match(url) {
+          let matched = this.findMatchedRoutes(url);
+          if (!matched.length) return false;
+          else if (matched.length === 1) return matched[0];
+          else {
+            return matched.sort((a, b) => {
+              if (b.params) return 1;
+              return -1;
+            })[0];
+          }
+        }
+      
+        findMatchedRoutes(url) {
+          return Object.keys(this.routes)
+            .map(route => {
+              var { regexp, paramNames } = this.replaceDynamicURLParts(this.clean(route));
+              var match = url.replace(/^\/+/, '/').match(regexp);
+              var params = this.regExpResultToParams(match, paramNames);
+              return !match ? false : {
+                match,
+                route,
+                params,
+                className: this.routes[route]
+              };
+            })
+            .filter(m => m && m.match[0] !== '');
+        }
+      
+        replaceDynamicURLParts(route) {
+          let paramNames = [];
+          let regexp = '';
+      
+          if (route instanceof RegExp) {
+            regexp = route;
+          } else {
+            regexp = new RegExp(
+              this.clean(route)
+                .replace(this.PARAMETER_REGEXP, (full, dots, name) => {
+                  paramNames.push(name);
+                  return this.REPLACE_VARIABLE_REGEXP;
+                })
+                .replace(this.WILDCARD_REGEXP, this.REPLACE_WILDCARD) + this.FOLLOWED_BY_SLASH_REGEXP, this.MATCH_REGEXP_FLAGS
+            );
+          }
+          return { regexp, paramNames };
+        }
+      
+        regExpResultToParams(match, names) {
+          if (names.length === 0) return null;
+          if (!match) return null;
+          return match
+            .slice(1, match.length)
+            .reduce((params, value, index) => {
+              if (params === null) params = {};
+              params[names[index]] = decodeURIComponent(value);
+              return params;
+            }, null);
+        }
+      }({
+        "/home": "Home",
+        "/404": "noop",
+        "/": "Home"
+      });
+      
+      class Page {
+        constructor() {}
+        connectedCallback() {}
+        template() { return ''; }
+        styles() { return ''; }
+        render() {
+          const renderBlock = document.querySelector('render-block-page');
+          if (!renderBlock) throw Error('Could not find <render-block-page>');
+          renderBlock.innerHTML = `<style>${this.styles()}</style>${this.template()}`;
+        }
+      }
+    
+      
+          document.addEventListener("DOMContentLoaded", function (event) {
+            (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','color-picker');
+          t.innerHTML=`
+          <style>
+            .picking-container {
+        vertical-align: top;
+        position: relative;
+        background-color: white;
+        height: 150px;
+        width: 300px;
+        padding: 5px;
+        user-select: none;
+      }
+      
+      .picker {
+        height: 10px;
+        width: 10px;
+        border: 1px white solid;
+        border-radius: 11px;
+        position: absolute;
+        cursor: pointer;
+        z-index: 10;
+        user-select: none;
+      }
+      
+      .striper {
+        height: 2px;
+        left: 192px;
+        width: 30px;
+        border: 1px white solid;
+        position: absolute;
+        cursor: pointer;
+        z-index: 10;
+        user-select: none;
+      }
+      
+      .picking-container.no-mouse { cursor: none; }
+      .picking-container.no-mouse .picker { cursor: none; }
+      .picking-container.no-mouse .striper { cursor: none; }
+      
+      .rgba-values {
+        display: inline-block;
+        vertical-align: top;
+        width: 65px;
+        padding-left: 8px;
+      }
+      
+      .input-container {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        padding-bottom: 6px;
+      }
+      
+      .input-container label {
+        font-size: 14px;
+        width: 24px;
+      }
+      
+      .input-container input {
+        width: 40px;
+      }
+          </style>
+          <render-block>
+            <div class="picking-container">
+        <div class="picker" style="left: 180px; top: 0px;"></div>
+        <div class="striper" style="top: 10px;"></div>
+        <canvas id="current-color" height="150" width="30"></canvas>
+        <canvas id="color-block" height="150" width="150"></canvas>
+        <canvas id="color-strip" height="150" width="30"></canvas>
+        <div class="rgba-values">
+          <div class="input-container">
+            <label for="r-value">R</label>
+            <input name="r-value">
+          </div>
+      
+          <div class="input-container">
+            <label for="g-value">G</label>
+            <input name="g-value">
+          </div>
+      
+          <div class="input-container">
+            <label for="b-value">B</label>
+            <input name="b-value">
+          </div>
+        </div>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("color-picker", 
+            class colorPicker extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+      
+          this.colorBlockSize = 150;
+          this.colorStripWidth = 30;
+          this.rgbaColor = 'rgba(255,0,0,1)';
+          this.pickerColor = this.rgbaColor;
+      
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.colorBlockContext.rect(0, 0, this.colorBlockSizeh1, this.colorBlockSize);
+          this.fillGradient();
+      
+          const ctx2 = this.colorStripContext;
+          ctx2.rect(0, 0, this.colorStripWidth, this.colorBlockSize);
+          const grd1 = ctx2.createLinearGradient(0, 0, 0, this.colorBlockSize);
+          grd1.addColorStop(0, 'rgba(255, 0, 0, 1)');
+          grd1.addColorStop(0.17, 'rgba(255, 255, 0, 1)');
+          grd1.addColorStop(0.34, 'rgba(0, 255, 0, 1)');
+          grd1.addColorStop(0.51, 'rgba(0, 255, 255, 1)');
+          grd1.addColorStop(0.68, 'rgba(0, 0, 255, 1)');
+          grd1.addColorStop(0.85, 'rgba(255, 0, 255, 1)');
+          grd1.addColorStop(1, 'rgba(255, 0, 0, 1)');
+          ctx2.fillStyle = grd1;
+          ctx2.fill();
+      
+          this.setBlockColor();
+          this.setPickerColor();
+      
+          // color block
+          this.bound_colorBlockMouseDown = this.colorBlockMouseDown.bind(this);
+          this.bound_colorBlockMouseUp = this.colorBlockMouseUp.bind(this);
+          this.bound_colorBlockMouseMove = this.colorBlockMouseMove.bind(this);
+          this.colorBlock.addEventListener('mousedown', this.bound_colorBlockMouseDown);
+      
+          // color strip
+          this.bound_colorStripMouseDown = this.colorStripMouseDown.bind(this);
+          this.bound_colorStripMouseUp = this.colorStripMouseUp.bind(this);
+          this.bound_colorStripMouseMove = this.colorStripMouseMove.bind(this);
+          this.colorStrip.addEventListener('mousedown', this.bound_colorStripMouseDown);
+      
+          this.setRGBInputs();
+        }
+      
+        disconnectedCallback() {
+          // color block
+          this.colorBlock.removeEventListener('mousedown', this.bound_colorBlockMouseDown);
+          document.removeEventListener('mouseup', this.bound_colorBlockMouseUp);
+          document.removeEventListener('mousemove', this.bound_colorBlockMouseMove);
+      
+          // color strip
+          this.colorStrip.removeEventListener('mousedown', this.bound_colorStripMouseDown);
+          document.removeEventListener('mouseup', this.bound_colorStripMouseUp);
+          document.removeEventListener('mousemove', this.bound_colorStripMouseMove);
+        }
+      
+        static get observedAttributes() {
+          return ['max-rgb-range'];
+        }
+      
+        attributeChangedCallback(name, oldValue, newValue) {
+          if (name === 'max-rgb-range') this.maxRGBRange = newValue;
+        }
+      
+        get color() {
+          const multiplier = this.maxRGBRange / 255;
+          const values = this.pickerColor.replace('rgba(', '').replace(')', '').split(',');
+          return [...values.slice(0, 3).map(v => v * multiplier), 1];
+        }
+      
+        get maxRGBRange() {
+          return this.maxRGBRange_ || 255;
+        }
+      
+        set maxRGBRange(value) {
+          if (value < 3) value = 3;
+          if (value > 255) value = 255;
+          this.maxRGBRange_ = value;
+        }
+      
+        get colorBlock() {
+          if (!this.colorBlock_) this.colorBlock_ = this.shadowRoot.querySelector('#color-block');
+          return this.colorBlock_;
+        }
+      
+        get colorBlockContext() {
+          return this.colorBlock.getContext('2d');
+        }
+      
+        get colorStrip() {
+          return this.shadowRoot.querySelector('#color-strip');
+        }
+      
+        get colorStripContext() {
+          return this.colorStrip.getContext('2d');
+        }
+      
+        get currentColor() {
+          return this.shadowRoot.querySelector('#current-color');
+        }
+      
+        get currentColorContext() {
+          return this.currentColor.getContext('2d');
+        }
+      
+        get picker() {
+          if (!this.picker_) this.picker_ = this.shadowRoot.querySelector('.picker');
+          return this.picker_;
+        }
+      
+        get striper() {
+          if (!this.striper_) this.striper_ = this.shadowRoot.querySelector('.striper');
+          return this.striper_;
+        }
+      
+        get pickingContainer() {
+          return this.shadowRoot.querySelector('.picking-container');
+        }
+      
+        get rInput() {
+          return this.shadowRoot.querySelector('input[name="r-value"]');
+        }
+      
+        get gInput() {
+          return this.shadowRoot.querySelector('input[name="g-value"]');
+        }
+      
+        get bInput() {
+          return this.shadowRoot.querySelector('input[name="b-value"]');
+        }
+      
+        setBlockColor() {
+          const ctx3 = this.currentColorContext;
+          ctx3.fillStyle = this.pickerColor;
+          ctx3.fillRect(0, 0, this.colorStripWidth, this.colorBlockSize);
+        }
+      
+        setPickerColor() {
+          this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(this.pickerX - this.colorStripWidth, this.pickerY, 1, 1).data].slice(0, 3).join(',')},1)`;
+          this.picker.style.backgroundColor = this.pickerColor;
+          this.setRGBInputs();
+          this.handleChange();
+        }
+      
+        updatePicker(x, y) {
+          const rect = this.colorBlock.getBoundingClientRect();
+          x -= rect.left;
+          x += this.colorStripWidth;
+          y -= rect.top;
+          if (x > this.colorBlockSize + this.colorStripWidth - 1) x = this.colorBlockSize + this.colorStripWidth - 1;
+          if (x < this.colorStripWidth) x = this.colorStripWidth;
+          if (y < 0) y = 0;
+          if (y > this.colorBlockSize) y = this.colorBlockSize;
+      
+          // get image data for color
+          this.pickerX = x;
+          this.pickerY = y;
+      
+          // offset picker
+          if (x < this.colorStripWidth + 5) x = this.colorStripWidth + 5;
+      
+          // set picker position
+          this.picker.style.left = `${x}px`;
+          this.picker.style.top = `${y}px`;
+          this.setPickerColor();
+        }
+      
+        updateStriper(y) {
+          const rect = this.colorStrip.getBoundingClientRect();
+          y -= rect.top;
+          if (y < 0) y = 0;
+          if (y > this.colorBlockSize) y = this.colorBlockSize;
+      
+          this.rgbaColor = `rgba(${[...this.colorStripContext.getImageData(1, y, 1, 1).data].slice(0, 3).join(',')},1)`;
+          this.striper.style.top = `${y}px`;
+          this.fillGradient();
+          this.setPickerColor();
+        }
+      
+        fillGradient() {
+          const ctx1 = this.colorBlockContext;
+          const ctx2 = this.colorStripContext;
+      
+          ctx1.fillStyle = this.rgbaColor;
+          ctx1.fillRect(0, 0, this.colorBlockSize, this.colorBlockSize);
+      
+          const grdWhite = ctx2.createLinearGradient(0, 0, this.colorBlockSize, 0);
+          grdWhite.addColorStop(0, 'rgba(255,255,255,1)');
+          grdWhite.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx1.fillStyle = grdWhite;
+          ctx1.fillRect(0, 0, this.colorBlockSize, this.colorBlockSize);
+      
+          const grdBlack = ctx2.createLinearGradient(0, 0, 0, this.colorBlockSize);
+          grdBlack.addColorStop(0, 'rgba(0,0,0,0)');
+          grdBlack.addColorStop(1, 'rgba(0,0,0,1)');
+          ctx1.fillStyle = grdBlack;
+          ctx1.fillRect(0, 0, this.colorBlockSize, this.colorBlockSize);
+        }
+      
+        setRGBInputs() {
+          const values = this.pickerColor.replace('rgba(', '').replace(')', '').split(',');
+          this.rInput.value = values[0];
+          this.gInput.value = values[1];
+          this.bInput.value = values[2];
+        }
+      
+      
+        // --- color block mouse events ---
+      
+        colorBlockMouseDown(e) {
+          this.isColorBlockMouseDown = true;
+          this.pickingContainer.classList.add('no-mouse');
+          this.updatePicker(e.clientX, e.clientY);
+          document.addEventListener('mouseup', this.bound_colorBlockMouseUp);
+          document.addEventListener('mousemove', this.bound_colorBlockMouseMove);
+        }
+      
+        colorBlockMouseUp() {
+          this.isColorBlockMouseDown = false;
+          this.pickingContainer.classList.remove('no-mouse');
+          this.setBlockColor();
+        }
+      
+        colorBlockMouseMove(e) {
+          if (this.isColorBlockMouseDown) {
+            this.updatePicker(e.clientX, e.clientY);
+          }
+        }
+      
+      
+        // --- color strip mouse events ---
+      
+        colorStripMouseDown(e) {
+          this.isColorStripMouseDown = true;
+          this.pickingContainer.classList.add('no-mouse');
+          this.updateStriper(e.clientY);
+          document.addEventListener('mouseup', this.bound_colorStripMouseUp);
+          document.addEventListener('mousemove', this.bound_colorStripMouseMove);
+        }
+      
+        colorStripMouseUp() {
+          this.isColorStripMouseDown = false;
+          this.pickingContainer.classList.remove('no-mouse');
+          // this.setBlockColor();
+        }
+      
+        colorStripMouseMove(e) {
+          if (this.isColorStripMouseDown) {
+            this.updateStriper(e.clientY);
+          }
+        }
+      
+        handleChange() {
+          this.dispatchEvent(new CustomEvent('change', {
+            detail: {
+              color: this.color
+            }
+          }));
+        }
+      
+        styles() {
+          return css`
+            .picking-container {
+              vertical-align: top;
+              position: relative;
+              background-color: white;
+              height: 150px;
+              width: 300px;
+              padding: 5px;
+              user-select: none;
+            }
+      
+            .picker {
+              height: 10px;
+              width: 10px;
+              border: 1px white solid;
+              border-radius: 11px;
+              position: absolute;
+              cursor: pointer;
+              z-index: 10;
+              user-select: none;
+            }
+      
+            .striper {
+              height: 2px;
+              left: 192px;
+              width: ${this.colorStripWidth}px;
+              border: 1px white solid;
+              position: absolute;
+              cursor: pointer;
+              z-index: 10;
+              user-select: none;
+            }
+      
+            .picking-container.no-mouse { cursor: none; }
+            .picking-container.no-mouse .picker { cursor: none; }
+            .picking-container.no-mouse .striper { cursor: none; }
+      
+            .rgba-values {
+              display: inline-block;
+              vertical-align: top;
+              width: 65px;
+              padding-left: 8px;
+            }
+      
+            .input-container {
+              flex: 1;
+              display: flex;
+              flex-direction: row;
+              padding-bottom: 6px;
+            }
+      
+            .input-container label {
+              font-size: 14px;
+              width: 24px;
+            }
+      
+            .input-container input {
+              width: 40px;
+            }
+          `;
+        }
+      
+        template() {
+          return html`
+            <div class="picking-container">
+              <div class="picker" style="left: ${this.colorBlockSize + this.colorStripWidth}px; top: 0px;"></div>
+              <div class="striper" style="top: 10px;"></div>
+              <canvas id="current-color" height="${this.colorBlockSize}" width="${this.colorStripWidth}"></canvas>
+              <canvas id="color-block" height="${this.colorBlockSize}" width="${this.colorBlockSize}"></canvas>
+              <canvas id="color-strip" height="${this.colorBlockSize}" width="${this.colorStripWidth}"></canvas>
+              <div class="rgba-values">
+                <div class="input-container">
+                  <label for="r-value">R</label>
+                  <input name="r-value">
+                </div>
+      
+                <div class="input-container">
+                  <label for="g-value">G</label>
+                  <input name="g-value">
+                </div>
+      
+                <div class="input-container">
+                  <label for="b-value">B</label>
+                  <input name="b-value">
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('color-picker');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','palette-tool');
+          t.innerHTML=`
+          <style>
+            .palette-container {
+        width: 312px;
+        background-color: white;
+        margin: 6px;
+      }
+      
+      .palette {
+        display: flex;
+        flex-direction: row;
+        padding: 6px;
+      }
+      
+      .color {
+        flex: 1;
+        height: 24px;
+        border: 3px solid rgba(0,0,0,0);
+        box-sizing: border-box;
+      }
+      
+      .color:hover {
+        border: 3px solid #AAA;
+      }
+      
+      .color.selected {
+        border: 3px solid rgb(0, 159, 218, 0.7);
+      }
+      
+      .divider {
+        border-bottom: 1px solid #999;
+      }
+      
+      .spacer {
+        padding-top: 12px;
+      }
+      
+      .top-row {
+        display: flex;
+        align-items: center;
+      }
+      
+      .title {
+        font-size: 18px;
+        font-weight: 400;
+        padding-left: 6px;
+        flex: 1;
+      }
+      
+      .edit-label {
+        color: #666;
+        font-size: 14px;
+        font-weight: bold;
+        padding-right: 6px;
+      }
+          </style>
+          <render-block>
+            <div class="palette-container">
+        <div class="top-row">
+          <div class="title">Palettes</div>
+          <input type="checkbox" name="edit">
+          <label class="edit-label" for="edit">Edit</label>
+        </div>
+        
+                  
+                  <div class="palette">
+                    
+                      <div class="color" style="background-color: rgba(0,0,0,1);" location="0-0"></div>
+                    
+        
+                      <div class="color" style="background-color: rgba(63,63,63,1);" location="0-1"></div>
+                    
+        
+                      <div class="color" style="background-color: rgba(127,127,127,1);" location="0-2"></div>
+                    
+        
+                      <div class="color" style="background-color: rgba(191,191,191,1);" location="0-3"></div>
+                    
+                  </div>
+        
+                
+        
+                  <div class="divider"></div>
+                  <div class="palette">
+                    
+                      <div class="color" style="background-color: rgba(0,0,0,1);" location="1-0"></div>
+                    
+        
+                      <div class="color" style="background-color: rgba(63,63,63,1);" location="1-1"></div>
+                    
+        
+                      <div class="color" style="background-color: rgba(127,127,127,1);" location="1-2"></div>
+                    
+        
+                      <div class="color" style="background-color: rgba(191,191,191,1);" location="1-3"></div>
+                    
+                  </div>
+        
+                
+      
+        <div class="spacer"></div>
+        <color-picker></color-picker>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("palette-tool", 
+            class paletteTool extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.bound_clickColor = this.clickColor.bind(this);
+          this.bound_onColorChange = this.onColorChange.bind(this);
+          this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
+          this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
+        }
+      
+        disconnectedCallback() {
+          this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickColor);
+          this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
+        }
+      
+        static get observedAttributes() {
+          return ['count', 'color-count'];
+        }
+      
+        attributeChangedCallback(name, _, newValue) {
+          if (name === 'count') this.count = newValue;
+          if (name === 'color-count') this.colorCount = newValue;
+        }
+      
+        get count() {
+          return this.count_ || 2;
+        }
+      
+        set count(value) {
+          value = parseInt(value);
+          if (value < 1) value = 1;
+          this.count_ = value;
+          this.render();
+        }
+      
+        get colorCount() {
+          return this.colorCount_ || 4;
+        }
+      
+        set colorCount(value) {
+          value = parseInt(value);
+          if (value < 1) value = 1;
+          this.colorCount_ = value;
+          this.render();
+        }
+      
+        get palettes() {
+          let change = false;
+          if (!this.palettes_) this.palettes_ = [...new Array(this.count)].map(() => this.generateDefaultPalette());
+          if (this.palettes_.length < this.colorCount) {
+            this.palettes_ = this.palettes_.concat([...new Array(this.colorCount - this.palettes_.length)].map(() => this.generateDefaultPalette()));
+            change = true;
+          }
+          if (this.palettes_.length > this.colorCount) {
+            [...new Array(this.palettes_.length - this.colorCount)].forEach(() => this.palettes_.pop());
+            change = true;
+          }
+          if (change) this.palettes_.forEach(p => this.updatePalette(p));
+          return this.palettes_;
+        }
+      
+        get selected() {
+          return this.selected_;
+        }
+      
+        set selected(value) {
+          if (!value.classList.contains('color')) throw Error('requires color element');
+          this.selected_ = value;
+        }
+      
+        isEdit() {
+          return this.shadowRoot.querySelector('input[name="edit"]').checked;
+        }
+      
+        generateDefaultPalette() {
+          const step = 255 / this.colorCount;
+          return [...new Array(this.colorCount)].map((_, i) => {
+            const value = parseInt(step * i);
+            return [value, value, value, 1];
+          });
+        }
+      
+        updatePalette(arr) {
+          if (arr.length > this.colorCount) [...new Array(arr.length - this.colorCount)].forEach(() => arr.pop());
+          if (arr.length < this.colorCount) {
+            const defaults = this.generateDefaultPalette();
+            [...new Array(this.colorCount - arr.length)].forEach((_, i) => arr.push(defaults[(arr.length - 1) + i]));
+          }
+        }
+      
+        clickColor(e) {
+          if (!e.target.classList.contains('color')) return;
+      
+          if (this.selected) this.selected.classList.remove('selected');
+          this.selected = e.target;
+          this.selected.classList.add('selected');
+        }
+      
+        onColorChange(e) {
+          if (this.isEdit()) this.updateSelected(e.detail.color);
+        }
+      
+        updateSelected(color) {
+          if (!this.selected) return;
+          const location = this.selected.getAttribute('location').split('-');
+          this.palettes[location[0]][location[1]] = color;
+          this.selected.style.backgroundColor = this.convertArrToRBGA(color);
+        }
+      
+        convertArrToRBGA(arr) {
+          return `rgba(${arr.join(',')})`;
+        }
+      
+        styles() {
+          return css`
+            .palette-container {
+              width: 312px;
+              background-color: white;
+              margin: 6px;
+            }
+      
+            .palette {
+              display: flex;
+              flex-direction: row;
+              padding: 6px;
+            }
+      
+            .color {
+              flex: 1;
+              height: 24px;
+              border: 3px solid rgba(0,0,0,0);
+              box-sizing: border-box;
+            }
+      
+            .color:hover {
+              border: 3px solid #AAA;
+            }
+      
+            .color.selected {
+              border: 3px solid rgb(0, 159, 218, 0.7);
+            }
+      
+            .divider {
+              border-bottom: 1px solid #999;
+            }
+      
+            .spacer {
+              padding-top: 12px;
+            }
+      
+            .top-row {
+              display: flex;
+              align-items: center;
+            }
+      
+            .title {
+              font-size: 18px;
+              font-weight: 400;
+              padding-left: 6px;
+              flex: 1;
+            }
+      
+            .edit-label {
+              color: #666;
+              font-size: 14px;
+              font-weight: bold;
+              padding-right: 6px;
+            }
+          `;
+        }
+      
+        template() {
+          return html`
+            <div class="palette-container">
+              <div class="top-row">
+                <div class="title">Palettes</div>
+                <input type="checkbox" name="edit">
+                <label class="edit-label" for="edit">Edit</label>
+              </div>
+              ${[...new Array(this.count)].map((_, i) => `
+                ${i !== 0 ? '<div class="divider"></div>' : ''}
+                <div class="palette">
+                  ${[...new Array(this.colorCount)].map((_, j) => `
+                    <div class="color" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" location="${i}-${j}"></div>
+                  `).join('\n')}
+                </div>
+      
+              `).join('\n')}
+      
+              <div class="spacer"></div>
+              <color-picker></color-picker>
+            </div>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('palette-tool');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
+          });
+        
+    
+      class Home extends Page {
+        constructor() {
+          super();
+          this.canvasX = 0;
+          this.canvasY = 0;
+          this.canvasWidth = 160;
+          this.canvasHeight = 144;
+          this.scale = 4;
+        }
+      
+        connectedCallback() {
+          const canvas_ = this.canvas;
+          const context_ = this.context;
+          this.bound_mouseDown = this.mouseDown.bind(this);
+          this.bound_mouseUp = this.mouseUp.bind(this);
+          this.bound_mouseLeave = this.mouseLeave.bind(this);
+          this.bound_mouseMove = this.mouseMove.bind(this);
+      
+          canvas_.addEventListener('mousedown', this.bound_mouseDown);
+          canvas_.addEventListener('mouseup', this.bound_mouseUp);
+          canvas_.addEventListener('mouseleave', this.bound_mouseLeave);
+          canvas_.addEventListener('mousemove', this.bound_mouseMove);
+      
+          context_.fillStyle = 'white';
+          context_.scale(this.scale, this.scale);
+          context_.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        }
+      
+        disconnectedCallback() {
+          const canvas_ = this.canvas;
+          canvas_.removeEventListener('mousedown', this.bound_mouseDown);
+          canvas_.removeEventListener('mouseup', this.bound_mouseUp);
+          canvas_.removeEventListener('mouseleave', this.bound_mouseLeave);
+          canvas_.removeEventListener('mousemove', this.bound_mouseMove);
+        }
+      
+        get title() {
+          return 'Home';
+        }
+      
+        get canvas() {
+          return document.querySelector('#canvas');
+        }
+      
+        get context() {
+          return this.canvas.getContext('2d');
+        }
+      
+        mouseDown(e) {
+          this.isMouseDown = true;
+          this.fillPixel(e.clientX, e.clientY);
+        }
+      
+        mouseUp(e) {
+          this.isMouseDown = false;
+        }
+      
+        mouseLeave(e) {
+          this.isMouseDown = false;
+        }
+      
+        mouseMove(e) {
+          if (this.isMouseDown) {
+            this.fillPixel(e.clientX, e.clientY);
+          }
+      
+          // TODO add pixel icon display
+        }
+      
+        fillPixel(x, y, color = '#000000') {
+          // TODO add pixel snapping for scale
+          const context_ = this.context;
+          context_.fillStyle = color;
+          context_.fillRect((x / (this.scale * this.scale)) - this.canvasX, (y / (this.scale * this.scale)) - this.canvasY, 1, 1);
+        }
+      
+        template() {
+          return html`
+            <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
+            <palette-tool count="4" color-count="4"></palette-tool>
+          `;
+        }
+      }
+    
+      window.$Home = new Home();
+      window.currentPageClass = window.$Home;
+      setTimeout(function () {
+        $Home.connectedCallback();
+      }, 0);
+    </script>
+    
+    <style>
+      
+      
+    </style>
+  </head>
+
+  <body>
+    <render-block-page>
+      <canvas id="canvas" width="640" height="576"></canvas>
+      <palette-tool count="4" color-count="4"></palette-tool>
+    </render-block-page>
+  </body>
+</html>

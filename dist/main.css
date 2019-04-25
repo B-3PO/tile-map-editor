@@ -1,0 +1,17 @@
+html {
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  margin: 0;
+}
+
+body {
+  font-size: 0.875rem;
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.03125em;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+
+  background-color: #999999;
+}

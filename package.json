@@ -1,0 +1,29 @@
+{
+  "name": "tile-map-editor",
+  "version": "1.0.0",
+  "description": "tile and map editor geared twards gameboy and gameboy color",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run watch & npm run serve",
+    "watch": "watch 'npm run build' src/",
+    "build": "node src/index.js && cp -r src/public/* dist/",
+    "serve": "http-server dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/B-3PO/tile-map-editor.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/B-3PO/tile-map-editor/issues"
+  },
+  "homepage": "https://github.com/B-3PO/tile-map-editor#readme",
+  "dependencies": {
+    "@webformula/pax-core": "github:webformula/pax-core",
+    "http-server": "^0.11.1"
+  },
+  "devDependencies": {
+    "watch": "^1.0.2"
+  }
+}
