@@ -28,11 +28,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.bound_mouseUp = this.mouseUp.bind(this);
     this.bound_mouseLeave = this.mouseLeave.bind(this);
     this.bound_mouseMove = this.mouseMove.bind(this);
+    this.bound_mouseEnter = this.mouseEnter.bind(this);
 
     canvas_.addEventListener('mousedown', this.bound_mouseDown);
     canvas_.addEventListener('mouseup', this.bound_mouseUp);
     canvas_.addEventListener('mouseleave', this.bound_mouseLeave);
     canvas_.addEventListener('mousemove', this.bound_mouseMove);
+    canvas_.addEventListener('mouseenter', this.bound_mouseEnter);
 
     context_.fillStyle = 'white';
     context_.scale(this.scale, this.scale);
@@ -47,6 +49,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     canvas_.removeEventListener('mouseup', this.bound_mouseUp);
     canvas_.removeEventListener('mouseleave', this.bound_mouseLeave);
     canvas_.removeEventListener('mousemove', this.bound_mouseMove);
+    canvas_.removeEventListener('mouseenter', this.bound_mouseEnter);
   }
 
   static get observedAttributes() {
@@ -108,6 +111,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   mouseLeave(e) {
     this.isMouseDown = false;
+    this.cursor.classList.add('hide');
+  }
+
+  mouseEnter(e) {
+    this.isMouseDown = false;
+    this.cursor.classList.remove('hide');
   }
 
   mouseMove(e) {
@@ -160,6 +169,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         width: 4px;
         height: 4px;
         border: 1px solid #DDD;
+      }
+
+      .cursor.hide {
+        display: none;
       }
     `;
   }
