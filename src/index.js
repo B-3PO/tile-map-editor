@@ -6,6 +6,8 @@ const {
 require('./components/color-picker.js');
 require('./components/palette-tool.js');
 require('./components/draw-canvas.js');
+require('./components/scale-range.js');
+require('./components/grid-settings.js');
 
 const layout = require('./layout');
 const pageMapper = new PageMapper('src/pages');

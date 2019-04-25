@@ -174,9 +174,12 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
 
   styles() {
     return css`
+      :host {
+        display: block;
+      }
+
       .palette-container {
         width: 312px;
-        background-color: white;
         margin: 6px;
       }
 

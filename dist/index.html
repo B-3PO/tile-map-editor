@@ -215,10 +215,13 @@
           t.setAttribute('id','color-picker');
           t.innerHTML=`
           <style>
-            .picking-container {
+            :host {
+        display: block;
+      }
+      
+      .picking-container {
         vertical-align: top;
         position: relative;
-        background-color: white;
         height: 150px;
         width: 300px;
         padding: 5px;
@@ -573,10 +576,13 @@
       
         styles() {
           return css`
+            :host {
+              display: block;
+            }
+      
             .picking-container {
               vertical-align: top;
               position: relative;
-              background-color: white;
               height: 150px;
               width: 300px;
               padding: 5px;
@@ -689,9 +695,12 @@
           t.setAttribute('id','palette-tool');
           t.innerHTML=`
           <style>
-            .palette-container {
+            :host {
+        display: block;
+      }
+      
+      .palette-container {
         width: 312px;
-        background-color: white;
         margin: 6px;
       }
       
@@ -977,9 +986,12 @@
       
         styles() {
           return css`
+            :host {
+              display: block;
+            }
+      
             .palette-container {
               width: 312px;
-              background-color: white;
               margin: 6px;
             }
       
@@ -1115,11 +1127,20 @@
       .cursor.hide {
         display: none;
       }
+      
+      #grid-canvas {
+        position: absolute;
+        left: 0.5px;
+        top: 0.5px;
+        pointer-events: none;
+        user-select: none;
+      }
           </style>
           <render-block>
             <div class="container">
         <div class="cursor"></div>
         <canvas id="canvas" width="640" height="576"></canvas>
+        <canvas id="grid-canvas" width="640" height="576"></canvas>
       </div>
           </render-block>
           `;
@@ -1137,31 +1158,38 @@
           this.canvasWidth = 160;
           this.canvasHeight = 144;
           this.scale_ = 4;
+          this.pixelData = [];
       
           this.cloneTemplate();
         }
           
       
         connectedCallback() {
-          const canvas_ = this.canvas;
           const context_ = this.context;
           this.bound_mouseDown = this.mouseDown.bind(this);
           this.bound_mouseUp = this.mouseUp.bind(this);
           this.bound_mouseLeave = this.mouseLeave.bind(this);
           this.bound_mouseMove = this.mouseMove.bind(this);
           this.bound_mouseEnter = this.mouseEnter.bind(this);
+          this.bound_onContextMenu = this.onContextMenu.bind(this);
       
+          this.addEvents();
+      
+          this.pixelData = [...new Array(this.canvasWidth)].map(i => [...new Array(this.canvasHeight)].map(i => [255, 255, 255, 1]));
+          this.redrawCanvas();
+      
+          this.color = [0,0,0,1];
+          this.inited = true;
+        }
+      
+        addEvents() {
+          const canvas_ = this.canvas;
           canvas_.addEventListener('mousedown', this.bound_mouseDown);
           canvas_.addEventListener('mouseup', this.bound_mouseUp);
           canvas_.addEventListener('mouseleave', this.bound_mouseLeave);
           canvas_.addEventListener('mousemove', this.bound_mouseMove);
           canvas_.addEventListener('mouseenter', this.bound_mouseEnter);
-      
-          context_.fillStyle = 'white';
-          context_.scale(this.scale, this.scale);
-          context_.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-          this.color = [0,0,0,1];
-          this.inited = true;
+          canvas_.addEventListener('contextmenu', this.bound_onContextMenu);
         }
       
         disconnectedCallback() {
@@ -1171,25 +1199,32 @@
           canvas_.removeEventListener('mouseleave', this.bound_mouseLeave);
           canvas_.removeEventListener('mousemove', this.bound_mouseMove);
           canvas_.removeEventListener('mouseenter', this.bound_mouseEnter);
+          canvas_.removeEventListener('contextmenu', this.bound_onContextMenu);
+          this.cursor_ = undefined;
         }
       
         static get observedAttributes() {
-          return ['scale', 'color'];
+          return ['scale', 'color', 'gridSize'];
         }
       
         attributeChangedCallback(name, oldValue, newValue) {
           if (name === 'scale') this.scale = newValue;
           if (name === 'color') this.color = newValue;
+          if (name === 'gridSize') this.gridSize = newValue;
         }
       
         get color() {
+          return this.convertToRGBA(this.color_);
+        }
+      
+        get rawColor() {
           return this.color_;
         }
       
         set color(value) {
           if (!value) return;
-          this.cursor.style.backgroundColor = `rgba(${value.join(',')})`;
-          this.color_ = `rgba(${value.join(',')})`;
+          this.cursor.style.backgroundColor = this.convertToRGBA(value);
+          this.color_ = value;
         }
       
         get canvas() {
@@ -1198,6 +1233,14 @@
       
         get context() {
           return this.canvas.getContext('2d');
+        }
+      
+        get gridCanvas() {
+          return this.shadowRoot.querySelector('#grid-canvas');
+        }
+      
+        get gridContext() {
+          return this.gridCanvas.getContext('2d');
         }
       
         get scale() {
@@ -1211,8 +1254,11 @@
           this.cursor.style.width = `${value}px`;
           this.cursor.style.height = `${value}px`;
           if (this.inited) {
+            this.disconnectedCallback();
             this.render();
-            this.context.scale(value, value);
+            this.addEvents();
+            this.redrawCanvas();
+            if (this.showGrid_) this.drawGrid();
           }
         }
       
@@ -1221,12 +1267,27 @@
           return this.cursor_;
         }
       
+        get gridSize() {
+          return this.gridSize_ || 8;
+        }
+      
+        set gridSize(value) {
+          this.gridSize_ = parseInt(value);
+          if (this.showGrid) this.drawGrid();
+        }
+      
         mouseDown(e) {
+          // block right click
+          if (e.which !== 1) return;
+      
           this.isMouseDown = true;
           this.fillPixel(e.clientX, e.clientY);
         }
       
         mouseUp(e) {
+          // block right click
+          if (e.which !== 1) return;
+      
           this.isMouseDown = false;
         }
       
@@ -1238,6 +1299,10 @@
         mouseEnter(e) {
           this.isMouseDown = false;
           this.cursor.classList.remove('hide');
+        }
+      
+        onContextMenu(e) {
+          e.preventDefault();
         }
       
         mouseMove(e) {
@@ -1256,9 +1321,10 @@
           x = x2;
           y = y2;
       
-          const context_ = this.context;
-          context_.fillStyle = this.color;
-          context_.fillRect(x / this.scale, y / this.scale, 1, 1);
+          const ctx = this.context;
+          ctx.fillStyle = this.color;
+          ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
+          this.pixelData[x / this.scale][y / this.scale] = this.rawColor;
         }
       
         snapToPixel(x, y) {
@@ -1267,6 +1333,60 @@
           y -= y % this.scale;
           if (y < 0) y = 0;
           return [x, y];
+        }
+      
+        convertToRGBA(value) {
+          return `rgba(${value.join(',')})`;
+        }
+      
+        getPixelCount() {
+          return this.canvasWidth * this.canvasHeight;
+        }
+      
+        redrawCanvas() {
+          const ctx = this.context;
+          ctx.scale(this.scale, this.scale);
+          this.pixelData.forEach((v, x) => {
+            v.forEach((c, y) => {
+              ctx.fillStyle = this.convertToRGBA(c);
+              ctx.fillRect(x,  y, 1, 1);
+            });
+          });
+        }
+      
+        showGrid() {
+          this.showGrid_ = true;
+          // this.gridCanvas.style.display = 'block';
+          this.drawGrid();
+        }
+      
+        hideGrid() {
+          this.showGrid_ = false;
+          this.gridContext.canvas.width = this.gridContext.canvas.width;
+        }
+      
+        drawGrid() {
+          const ctx = this.gridContext;
+          const width = this.canvasWidth * this.scale;
+          const height = this.canvasHeight * this.scale;
+          const length = width;
+          const gridSize = this.gridSize * this.scale;
+          let currentColumn = gridSize;
+          ctx.canvas.width = ctx.canvas.width;
+      
+          while (currentColumn < length) {
+            ctx.moveTo(currentColumn, 0);
+            ctx.lineTo(currentColumn, height);
+      
+            ctx.moveTo(0, currentColumn);
+            ctx.lineTo(width, currentColumn);
+      
+            currentColumn += gridSize;
+          }
+      
+          ctx.lineWidth = 0.5;
+          ctx.strokeStyle = 'rgba(200,200,200,0.8)';
+          ctx.stroke();
         }
       
         styles() {
@@ -1295,6 +1415,14 @@
             .cursor.hide {
               display: none;
             }
+      
+            #grid-canvas {
+              position: absolute;
+              left: 0.5px;
+              top: 0.5px;
+              pointer-events: none;
+              user-select: none;
+            }
           `;
         }
       
@@ -1303,6 +1431,7 @@
             <div class="container">
               <div class="cursor"></div>
               <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
+              <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
             </div>
           `;
         }
@@ -1320,6 +1449,339 @@
       
               cloneTemplate(rerender = false) {
                 var template = document.getElementById('draw-canvas');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','scale-range');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        width: 180px;
+        background-color: #DDD;
+        border: 1px solid #AAA;
+        border-radius: 3px;
+        padding: 2px;
+      }
+      
+      #scale-input {
+        width: 20px;
+        margin: 0;
+      }
+      
+      #scale-range {
+        width: 120px;
+        height: 9px;
+        padding-left: 4px;
+      }
+          </style>
+          <render-block>
+            <span>%</span>
+      <input type="text" id="scale-input">
+      <input type="range" min="1" max="10" value="" id="scale-range">
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("scale-range", 
+            class scaleRange extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.bound_inputChange = this.inputChange.bind(this);
+          this.bound_rangeChange = this.rangeChange.bind(this);
+          this.inputEl.addEventListener('change', this.bound_inputChange);
+          this.rangeEl.addEventListener('input', this.bound_rangeChange);
+          this.max = this.hasAttribute('max') ? this.getAttribute('max') : 10;
+          this.min = this.hasAttribute('min') ? this.getAttribute('min') : 1;
+          this.value = this.hasAttribute('value') ? this.getAttribute('value') : 1;
+          this.inited = true;
+        }
+      
+        disconnectedCallback() {
+          this.inputEl.removeEventListener('change', this.bound_inputChange);
+          this.rangeEl.removeEventListener('input', this.bound_rangeChange);
+        }
+      
+        static get observedAttributes() {
+          return ['min', 'max'];
+        }
+      
+        attributeChangedCallback(name, _, newValue) {
+          if (name === 'min') this.min = newValue;
+          if (name === 'maxt') this.max = newValue;
+        }
+      
+        get min() {
+          return this.min_;
+        }
+      
+        set min(value) {
+          value = parseInt(value);
+          this.min_ = value;
+        }
+      
+        get max() {
+          return this.max_;
+        }
+      
+        set max(value) {
+          value = parseInt(value);
+          this.max_ = value;
+        }
+      
+        get inputEl() {
+          return this.shadowRoot.querySelector('input[type="text"]');
+        }
+      
+        get rangeEl() {
+          return this.shadowRoot.querySelector('input[type="range"]');
+        }
+      
+        get value() {
+          return this.value_;
+        }
+      
+        set value(v) {
+          this.value_ = parseInt(v);
+          if (this.value_ < this.min) this.value_ = this.min;
+          if (this.value_ > this.max) this.value_ = this.max;
+      
+          this.rangeEl.removeEventListener('input', this.bound_inputChange);
+          this.inputEl.removeEventListener('change', this.bound_inputChange);
+          this.rangeEl.value = this.value_;
+          this.inputEl.value = this.value_;
+          this.rangeEl.addEventListener('input', this.bound_inputChange);
+          this.inputEl.addEventListener('change', this.bound_inputChange);
+          if (this.inited) this.handleChange();
+        }
+      
+        inputChange(e) {
+          this.value = this.inputEl.value;
+        }
+      
+        rangeChange(e) {
+          this.value = this.rangeEl.value;
+        }
+      
+        handleChange() {
+          this.dispatchEvent(new CustomEvent('change', {
+            detail: {
+              value: this.value
+            }
+          }));
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              width: 180px;
+              background-color: #DDD;
+              border: 1px solid #AAA;
+              border-radius: 3px;
+              padding: 2px;
+            }
+      
+            #scale-input {
+              width: 20px;
+              margin: 0;
+            }
+      
+            #scale-range {
+              width: 120px;
+              height: 9px;
+              padding-left: 4px;
+            }
+          `;
+        }
+      
+      
+        template() {
+          return html`
+            <span>%</span>
+            <input type="text" id="scale-input">
+            <input type="range" min="1" max="10" value="${this.value}" id="scale-range">
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('scale-range');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','grid-settings');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        background-color: #DDD;
+        border: 1px solid #AAA;
+        border-radius: 3px;
+        padding: 2px;
+        padding-right: 8px;
+      }
+      
+      #pixel-input {
+        width: 20px;
+        margin: 0;
+        margin-left: 12px;
+      }
+          </style>
+          <render-block>
+            <span>Grid</span>
+      <input type="checkbox">
+      <input type="text" id="pixel-input">
+      <span>px</span>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("grid-settings", 
+            class gridSettings extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.pixelInput.value = 8;
+          this.bound_inputChange = this.inputChange.bind(this);
+          this.bound_checkboxChange = this.checkboxChange.bind(this);
+          this.pixelInput.addEventListener('change', this.bound_inputChange);
+          this.checkbox.addEventListener('change', this.bound_checkboxChange);
+        }
+      
+        disconnectedCallback() {
+          this.pixelInput.removeEventListener('change', this.bound_inputChange);
+          this.checkbox.removeEventListener('change', this.bound_checkboxChange);
+        }
+      
+        get pixelInput() {
+          return this.shadowRoot.querySelector('input[type="text"]');
+        }
+      
+        get checkbox() {
+          return this.shadowRoot.querySelector('input[type="checkbox"]');
+        }
+      
+        get show() {
+          return this.show_;
+        }
+      
+        set show(value) {
+          this.show_ = value;
+        }
+      
+        get pixels() {
+          return this.pixels_;
+        }
+      
+        set pixels(value) {
+          this.pixels_ = value;
+        }
+      
+        inputChange(e) {
+          this.pixels = this.pixelInput.value;
+          this.handleChange();
+        }
+      
+        checkboxChange(e) {
+          this.show = this.checkbox.checked;
+          this.handleChange();
+        }
+      
+        handleChange() {
+          this.dispatchEvent(new CustomEvent('change', {
+            detail: {
+              show: this.show,
+              pixels: this.pixels
+            }
+          }));
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              background-color: #DDD;
+              border: 1px solid #AAA;
+              border-radius: 3px;
+              padding: 2px;
+              padding-right: 8px;
+            }
+      
+            #pixel-input {
+              width: 20px;
+              margin: 0;
+              margin-left: 12px;
+            }
+          `;
+        }
+      
+      
+        template() {
+          return html`
+            <span>Grid</span>
+            <input type="checkbox">
+            <input type="text" id="pixel-input">
+            <span>px</span>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('grid-settings');
                 var templateContent = template.content;
                 var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
                 var clone = templateContent.cloneNode(true);
@@ -1383,6 +1845,18 @@
           this.canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
         }
       
+        scaleCanvas(scale) {
+          this.canvas.scale = scale;
+          this.centerCanvas();
+        }
+      
+        updateGrid(show, pixels) {
+          if (show) {
+            this.canvas.gridSize = pixels;
+            this.canvas.showGrid();
+          } else this.canvas.hideGrid();
+        }
+      
         template() {
           return html`
             <div class="main-container">
@@ -1397,6 +1871,10 @@
                 <div class="canvas-plane">
                   <!-- TODO replace with component -->
                   <draw-canvas scale="4"></draw-canvas>
+                </div>
+                <div class="scale-container">
+                  <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
+                  <grid-settings onchange="$Home.updateGrid(this.show, this.pixels)"></grid-settings>
                 </div>
               </div>
               <div class="settings-container">
@@ -1418,6 +1896,8 @@
       
       
       
+      
+      
     </style>
   </head>
 
@@ -1435,6 +1915,10 @@
           <div class="canvas-plane">
             <!-- TODO replace with component -->
             <draw-canvas scale="4"></draw-canvas>
+          </div>
+          <div class="scale-container">
+            <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
+            <grid-settings onchange="$Home.updateGrid(this.show, this.pixels)"></grid-settings>
           </div>
         </div>
         <div class="settings-container">

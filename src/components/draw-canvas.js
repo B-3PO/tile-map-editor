@@ -17,30 +17,37 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.canvasWidth = 160;
     this.canvasHeight = 144;
     this.scale_ = 4;
+    this.pixelData = [];
 
     this.cloneTemplate();
   }
 
   connectedCallback() {
-    const canvas_ = this.canvas;
     const context_ = this.context;
     this.bound_mouseDown = this.mouseDown.bind(this);
     this.bound_mouseUp = this.mouseUp.bind(this);
     this.bound_mouseLeave = this.mouseLeave.bind(this);
     this.bound_mouseMove = this.mouseMove.bind(this);
     this.bound_mouseEnter = this.mouseEnter.bind(this);
+    this.bound_onContextMenu = this.onContextMenu.bind(this);
 
+    this.addEvents();
+
+    this.pixelData = [...new Array(this.canvasWidth)].map(i => [...new Array(this.canvasHeight)].map(i => [255, 255, 255, 1]));
+    this.redrawCanvas();
+
+    this.color = [0,0,0,1];
+    this.inited = true;
+  }
+
+  addEvents() {
+    const canvas_ = this.canvas;
     canvas_.addEventListener('mousedown', this.bound_mouseDown);
     canvas_.addEventListener('mouseup', this.bound_mouseUp);
     canvas_.addEventListener('mouseleave', this.bound_mouseLeave);
     canvas_.addEventListener('mousemove', this.bound_mouseMove);
     canvas_.addEventListener('mouseenter', this.bound_mouseEnter);
-
-    context_.fillStyle = 'white';
-    context_.scale(this.scale, this.scale);
-    context_.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-    this.color = [0,0,0,1];
-    this.inited = true;
+    canvas_.addEventListener('contextmenu', this.bound_onContextMenu);
   }
 
   disconnectedCallback() {
@@ -50,25 +57,32 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     canvas_.removeEventListener('mouseleave', this.bound_mouseLeave);
     canvas_.removeEventListener('mousemove', this.bound_mouseMove);
     canvas_.removeEventListener('mouseenter', this.bound_mouseEnter);
+    canvas_.removeEventListener('contextmenu', this.bound_onContextMenu);
+    this.cursor_ = undefined;
   }
 
   static get observedAttributes() {
-    return ['scale', 'color'];
+    return ['scale', 'color', 'gridSize'];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === 'scale') this.scale = newValue;
     if (name === 'color') this.color = newValue;
+    if (name === 'gridSize') this.gridSize = newValue;
   }
 
   get color() {
+    return this.convertToRGBA(this.color_);
+  }
+
+  get rawColor() {
     return this.color_;
   }
 
   set color(value) {
     if (!value) return;
-    this.cursor.style.backgroundColor = `rgba(${value.join(',')})`;
-    this.color_ = `rgba(${value.join(',')})`;
+    this.cursor.style.backgroundColor = this.convertToRGBA(value);
+    this.color_ = value;
   }
 
   get canvas() {
@@ -77,6 +91,14 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   get context() {
     return this.canvas.getContext('2d');
+  }
+
+  get gridCanvas() {
+    return this.shadowRoot.querySelector('#grid-canvas');
+  }
+
+  get gridContext() {
+    return this.gridCanvas.getContext('2d');
   }
 
   get scale() {
@@ -90,8 +112,11 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.cursor.style.width = `${value}px`;
     this.cursor.style.height = `${value}px`;
     if (this.inited) {
+      this.disconnectedCallback();
       this.render();
-      this.context.scale(value, value);
+      this.addEvents();
+      this.redrawCanvas();
+      if (this.showGrid_) this.drawGrid();
     }
   }
 
@@ -100,12 +125,27 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return this.cursor_;
   }
 
+  get gridSize() {
+    return this.gridSize_ || 8;
+  }
+
+  set gridSize(value) {
+    this.gridSize_ = parseInt(value);
+    if (this.showGrid) this.drawGrid();
+  }
+
   mouseDown(e) {
+    // block right click
+    if (e.which !== 1) return;
+
     this.isMouseDown = true;
     this.fillPixel(e.clientX, e.clientY);
   }
 
   mouseUp(e) {
+    // block right click
+    if (e.which !== 1) return;
+
     this.isMouseDown = false;
   }
 
@@ -117,6 +157,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   mouseEnter(e) {
     this.isMouseDown = false;
     this.cursor.classList.remove('hide');
+  }
+
+  onContextMenu(e) {
+    e.preventDefault();
   }
 
   mouseMove(e) {
@@ -135,9 +179,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     x = x2;
     y = y2;
 
-    const context_ = this.context;
-    context_.fillStyle = this.color;
-    context_.fillRect(x / this.scale, y / this.scale, 1, 1);
+    const ctx = this.context;
+    ctx.fillStyle = this.color;
+    ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
+    this.pixelData[x / this.scale][y / this.scale] = this.rawColor;
   }
 
   snapToPixel(x, y) {
@@ -146,6 +191,60 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     y -= y % this.scale;
     if (y < 0) y = 0;
     return [x, y];
+  }
+
+  convertToRGBA(value) {
+    return `rgba(${value.join(',')})`;
+  }
+
+  getPixelCount() {
+    return this.canvasWidth * this.canvasHeight;
+  }
+
+  redrawCanvas() {
+    const ctx = this.context;
+    ctx.scale(this.scale, this.scale);
+    this.pixelData.forEach((v, x) => {
+      v.forEach((c, y) => {
+        ctx.fillStyle = this.convertToRGBA(c);
+        ctx.fillRect(x,  y, 1, 1);
+      });
+    });
+  }
+
+  showGrid() {
+    this.showGrid_ = true;
+    // this.gridCanvas.style.display = 'block';
+    this.drawGrid();
+  }
+
+  hideGrid() {
+    this.showGrid_ = false;
+    this.gridContext.canvas.width = this.gridContext.canvas.width;
+  }
+
+  drawGrid() {
+    const ctx = this.gridContext;
+    const width = this.canvasWidth * this.scale;
+    const height = this.canvasHeight * this.scale;
+    const length = width;
+    const gridSize = this.gridSize * this.scale;
+    let currentColumn = gridSize;
+    ctx.canvas.width = ctx.canvas.width;
+
+    while (currentColumn < length) {
+      ctx.moveTo(currentColumn, 0);
+      ctx.lineTo(currentColumn, height);
+
+      ctx.moveTo(0, currentColumn);
+      ctx.lineTo(width, currentColumn);
+
+      currentColumn += gridSize;
+    }
+
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(200,200,200,0.8)';
+    ctx.stroke();
   }
 
   styles() {
@@ -174,6 +273,14 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       .cursor.hide {
         display: none;
       }
+
+      #grid-canvas {
+        position: absolute;
+        left: 0.5px;
+        top: 0.5px;
+        pointer-events: none;
+        user-select: none;
+      }
     `;
   }
 
@@ -182,6 +289,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       <div class="container">
         <div class="cursor"></div>
         <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
+        <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
       </div>
     `;
   }

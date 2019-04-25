@@ -35,9 +35,20 @@ body {
   flex-direction: column;
   width: 45px;
   height: 100%;
-  background-color: #999;
+  background-color: #DDD;
 }
 
+scale-range {
+  position: absolute;
+  bottom: 4px;
+  left: 8px;
+}
+
+grid-settings {
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+}
 
 
 /* --- canvas arrea --- */

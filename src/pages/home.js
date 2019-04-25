@@ -52,6 +52,18 @@ module.exports = class Home extends Page {
     this.canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
   }
 
+  scaleCanvas(scale) {
+    this.canvas.scale = scale;
+    this.centerCanvas();
+  }
+
+  updateGrid(show, pixels) {
+    if (show) {
+      this.canvas.gridSize = pixels;
+      this.canvas.showGrid();
+    } else this.canvas.hideGrid();
+  }
+
   template() {
     return html`
       <div class="main-container">
@@ -66,6 +78,10 @@ module.exports = class Home extends Page {
           <div class="canvas-plane">
             <!-- TODO replace with component -->
             <draw-canvas scale="4"></draw-canvas>
+          </div>
+          <div class="scale-container">
+            <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
+            <grid-settings onchange="$Home.updateGrid(this.show, this.pixels)"></grid-settings>
           </div>
         </div>
         <div class="settings-container">

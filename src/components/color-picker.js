@@ -270,10 +270,13 @@ customElements.define('color-picker', class extends HTMLElementExtended {
 
   styles() {
     return css`
+      :host {
+        display: block;
+      }
+
       .picking-container {
         vertical-align: top;
         position: relative;
-        background-color: white;
         height: 150px;
         width: 300px;
         padding: 5px;
