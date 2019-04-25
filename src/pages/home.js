@@ -64,6 +64,18 @@ module.exports = class Home extends Page {
     } else this.canvas.hideGrid();
   }
 
+  loadImage(el) {
+    if(el.files.length === 0) return;
+    const file = el.files[0];
+    if(file.type !== '' && !file.type.match('image.*')) return;
+
+    const image = new Image();
+    image.addEventListener('load', () => {
+      this.canvas.drawImage(image, 0, 0);
+    }, false);
+    image.src = window.URL.createObjectURL(file);
+  }
+
   template() {
     return html`
       <div class="main-container">
@@ -72,6 +84,8 @@ module.exports = class Home extends Page {
           <div class="icon-button">brush</div>
           <div class="icon-button">colorize</div>
           <div style="flex: 1;"></div>
+          <label for="fileChooser" class="icon-button">image</label>
+          <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
           <div class="icon-button">save</div>
         </div>
         <div class="canvas-container">

@@ -23,7 +23,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   connectedCallback() {
-    const context_ = this.context;
+    const ctx = this.backgroundContext;
     this.bound_mouseDown = this.mouseDown.bind(this);
     this.bound_mouseUp = this.mouseUp.bind(this);
     this.bound_mouseLeave = this.mouseLeave.bind(this);
@@ -33,15 +33,19 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
     this.addEvents();
 
-    this.pixelData = [...new Array(this.canvasWidth)].map(i => [...new Array(this.canvasHeight)].map(i => [255, 255, 255, 1]));
-    this.redrawCanvas();
+    // this.pixelData = [...new Array(this.canvasHeight)].map(i => [...new Array(this.canvasWidth)].map(i => [255, 255, 255, 255]));
+    // this.redrawCanvas();
 
-    this.color = [0,0,0,1];
+    ctx.fillStyle = 'white';
+    ctx.scale(this.scale, this.scale);
+    ctx.fillRect(0, 0, this.canvasWidth * this.scale, this.canvasHeight * this.scale);
+
+    this.color = [0,0,0,255];
     this.inited = true;
   }
 
   addEvents() {
-    const canvas_ = this.canvas;
+    const canvas_ = this.backgroundCanvas;
     canvas_.addEventListener('mousedown', this.bound_mouseDown);
     canvas_.addEventListener('mouseup', this.bound_mouseUp);
     canvas_.addEventListener('mouseleave', this.bound_mouseLeave);
@@ -51,7 +55,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   disconnectedCallback() {
-    const canvas_ = this.canvas;
+    const canvas_ = this.backgroundCanvas;
     canvas_.removeEventListener('mousedown', this.bound_mouseDown);
     canvas_.removeEventListener('mouseup', this.bound_mouseUp);
     canvas_.removeEventListener('mouseleave', this.bound_mouseLeave);
@@ -85,12 +89,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.color_ = value;
   }
 
-  get canvas() {
-    return this.shadowRoot.querySelector('#canvas');
+  get backgroundCanvas() {
+    return this.shadowRoot.querySelector('#backround-canvas');
   }
 
-  get context() {
-    return this.canvas.getContext('2d');
+  get backgroundContext() {
+    return this.backgroundCanvas.getContext('2d');
   }
 
   get gridCanvas() {
@@ -101,6 +105,14 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return this.gridCanvas.getContext('2d');
   }
 
+  get tempCanvas() {
+    return this.shadowRoot.querySelector('#temp-canvas');
+  }
+
+  get tempContext() {
+    return this.tempCanvas.getContext('2d');
+  }
+
   get scale() {
     return this.scale_;
   }
@@ -108,6 +120,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   set scale(value) {
     value = parseFloat(value);
     if (value < 1) value = 1;
+    this.storeCanvas();
     this.scale_ = value;
     this.cursor.style.width = `${value}px`;
     this.cursor.style.height = `${value}px`;
@@ -171,6 +184,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.cursor.style.top = `${y}px`;
   }
 
+  drawImage(image, x, y) {
+    this.backgroundContext.imageSmoothingEnabled = false;
+    this.backgroundContext.drawImage(image, x, y);
+    this.storeCanvas();
+  }
+
   fillPixel(x, y) {
     const bounds = this.getBoundingClientRect();
     x -= bounds.left;
@@ -179,10 +198,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     x = x2;
     y = y2;
 
-    const ctx = this.context;
+    const ctx = this.backgroundContext;
     ctx.fillStyle = this.color;
     ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
-    this.pixelData[x / this.scale][y / this.scale] = this.rawColor;
+    // this.pixelData[y / this.scale][x / this.scale] = this.rawColor;
   }
 
   snapToPixel(x, y) {
@@ -202,19 +221,25 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   redrawCanvas() {
-    const ctx = this.context;
+    // copy to identical canvis of ientical size
+    const tempCanvas = this.tempCanvas;
+    tempCanvas.width = this.canvasData.width;
+    tempCanvas.height = this.canvasData.height;
+    this.tempContext.putImageData(this.canvasData, 0, 0);
+
+    // use draw image, this has an option for streatching
+    const ctx = this.backgroundContext;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tempCanvas, 0, 0, this.canvasData.width, this.canvasData.height, 0, 0, this.canvasWidth * this.scale, this.canvasHeight * this.scale);
     ctx.scale(this.scale, this.scale);
-    this.pixelData.forEach((v, x) => {
-      v.forEach((c, y) => {
-        ctx.fillStyle = this.convertToRGBA(c);
-        ctx.fillRect(x,  y, 1, 1);
-      });
-    });
+  }
+
+  storeCanvas() {
+    this.canvasData = this.backgroundContext.getImageData(0, 0, this.canvasWidth * this.scale, this.canvasHeight * this.scale);
   }
 
   showGrid() {
     this.showGrid_ = true;
-    // this.gridCanvas.style.display = 'block';
     this.drawGrid();
   }
 
@@ -245,6 +270,15 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     ctx.lineWidth = 0.5;
     ctx.strokeStyle = 'rgba(200,200,200,0.8)';
     ctx.stroke();
+  }
+
+  // --- layer management ---
+  addLayer() {
+
+  }
+
+  deleteLayer() {
+
   }
 
   styles() {
@@ -281,6 +315,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         pointer-events: none;
         user-select: none;
       }
+
+      #temp-canvas {
+        position: absolute;
+      }
     `;
   }
 
@@ -288,9 +326,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return html`
       <div class="container">
         <div class="cursor"></div>
-        <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
+        <canvas id="backround-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
         <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
       </div>
+      <canvas id="temp-canvas" width="0" height="0" style="display: none;"></canvas>
     `;
   }
 });
