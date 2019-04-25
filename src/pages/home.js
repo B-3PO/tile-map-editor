@@ -15,6 +15,8 @@ module.exports = class Home extends Page {
     this.paletteTool.addEventListener('change', this.bound_paletteChange);
 
     this.centerCanvas();
+
+    this.canvas.color = this.paletteTool.selectedColor;
   }
 
   disconnectedCallback() {

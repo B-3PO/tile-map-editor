@@ -17,7 +17,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.canvasWidth = 160;
     this.canvasHeight = 144;
     this.scale_ = 4;
-    this.pixelData = [];
+    this.color_ = [0,0,0,255];
 
     this.cloneTemplate();
   }
@@ -33,14 +33,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
     this.addEvents();
 
-    // this.pixelData = [...new Array(this.canvasHeight)].map(i => [...new Array(this.canvasWidth)].map(i => [255, 255, 255, 255]));
-    // this.redrawCanvas();
-
     ctx.fillStyle = 'white';
     ctx.scale(this.scale, this.scale);
     ctx.fillRect(0, 0, this.canvasWidth * this.scale, this.canvasHeight * this.scale);
 
-    this.color = [0,0,0,255];
     this.inited = true;
   }
 
@@ -120,17 +116,29 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   set scale(value) {
     value = parseFloat(value);
     if (value < 1) value = 1;
+    // store canvas before scale change
     this.storeCanvas();
+
+    // update scale
     this.scale_ = value;
-    this.cursor.style.width = `${value}px`;
-    this.cursor.style.height = `${value}px`;
+
     if (this.inited) {
+      // disconnect listenres, we are going to redraw the screen and the elements will change
       this.disconnectedCallback();
+      // redraw elements
       this.render();
+      // add back evnets
       this.addEvents();
+      // redraw canvas
       this.redrawCanvas();
+      // optional draw grid
       if (this.showGrid_) this.drawGrid();
     }
+
+    // update cursor
+    this.cursor.style.width = `${value}px`;
+    this.cursor.style.height = `${value}px`;
+    this.cursor.style.backgroundColor = this.color;
   }
 
   get cursor() {
@@ -201,7 +209,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const ctx = this.backgroundContext;
     ctx.fillStyle = this.color;
     ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
-    // this.pixelData[y / this.scale][x / this.scale] = this.rawColor;
   }
 
   snapToPixel(x, y) {
@@ -299,9 +306,9 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         cursor: none;
         user-select: none;
         pointer-events: none;
+        border: 1px solid #DDD;
         width: 4px;
         height: 4px;
-        border: 1px solid #DDD;
       }
 
       .cursor.hide {
