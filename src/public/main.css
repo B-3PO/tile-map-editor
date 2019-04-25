@@ -2,6 +2,7 @@ html {
   font-family: Roboto, 'Helvetica Neue', sans-serif;
   font-size: 16px;
   margin: 0;
+  height: 100%;
 }
 
 body {
@@ -12,6 +13,42 @@ body {
   letter-spacing: 0.03125em;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
+  height: 100%;
+  background-color: white;
+}
 
-  background-color: #999999;
+
+.main-container {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+}
+
+.settings-container {
+  width: 322px;
+  height: 100%;
+  background-color: #DDD;
+}
+
+.tool-bar {
+  width: 56px;
+  height: 100%;
+  background-color: #999;
+}
+
+
+
+/* --- canvas arrea --- */
+
+.canvas-container {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-color: #CCC;
+}
+
+.canvas-plane {
+  position: absolute;
+  top: 0;
+  left: 0;
 }

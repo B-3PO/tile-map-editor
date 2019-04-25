@@ -11,75 +11,62 @@ module.exports = class Home extends Page {
   }
 
   connectedCallback() {
-    const canvas_ = this.canvas;
-    const context_ = this.context;
-    this.bound_mouseDown = this.mouseDown.bind(this);
-    this.bound_mouseUp = this.mouseUp.bind(this);
-    this.bound_mouseLeave = this.mouseLeave.bind(this);
-    this.bound_mouseMove = this.mouseMove.bind(this);
+    this.bound_paletteChange = this.paletteChange.bind(this);
+    this.paletteTool.addEventListener('change', this.bound_paletteChange);
 
-    canvas_.addEventListener('mousedown', this.bound_mouseDown);
-    canvas_.addEventListener('mouseup', this.bound_mouseUp);
-    canvas_.addEventListener('mouseleave', this.bound_mouseLeave);
-    canvas_.addEventListener('mousemove', this.bound_mouseMove);
-
-    context_.fillStyle = 'white';
-    context_.scale(this.scale, this.scale);
-    context_.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    this.centerCanvas();
   }
 
   disconnectedCallback() {
-    const canvas_ = this.canvas;
-    canvas_.removeEventListener('mousedown', this.bound_mouseDown);
-    canvas_.removeEventListener('mouseup', this.bound_mouseUp);
-    canvas_.removeEventListener('mouseleave', this.bound_mouseLeave);
-    canvas_.removeEventListener('mousemove', this.bound_mouseMove);
+    this.paletteTool.removeEventListener('change', this.bound_paletteChange);
   }
 
   get title() {
     return 'Home';
   }
 
+  get paletteTool() {
+    return document.querySelector('palette-tool');
+  }
+
+  paletteChange(e) {
+    this.canvas.color = e.detail.selectedColor;
+  }
+
+  get canvasContainer() {
+    return document.querySelector('.canvas-container');
+  }
+
+  get canvasPlane() {
+    return document.querySelector('.canvas-plane');
+  }
+
   get canvas() {
-    return document.querySelector('#canvas');
+    return document.querySelector('draw-canvas');
   }
 
-  get context() {
-    return this.canvas.getContext('2d');
-  }
-
-  mouseDown(e) {
-    this.isMouseDown = true;
-    this.fillPixel(e.clientX, e.clientY);
-  }
-
-  mouseUp(e) {
-    this.isMouseDown = false;
-  }
-
-  mouseLeave(e) {
-    this.isMouseDown = false;
-  }
-
-  mouseMove(e) {
-    if (this.isMouseDown) {
-      this.fillPixel(e.clientX, e.clientY);
-    }
-
-    // TODO add pixel icon display
-  }
-
-  fillPixel(x, y, color = '#000000') {
-    // TODO add pixel snapping for scale
-    const context_ = this.context;
-    context_.fillStyle = color;
-    context_.fillRect((x / (this.scale * this.scale)) - this.canvasX, (y / (this.scale * this.scale)) - this.canvasY, 1, 1);
+  centerCanvas() {
+    const containerBounds = this.canvasContainer.getBoundingClientRect();
+    const canvasBounds = this.canvas.getBoundingClientRect();
+    this.canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
+    this.canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
   }
 
   template() {
     return html`
-      <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
-      <palette-tool count="4" color-count="4"></palette-tool>
+      <div class="main-container">
+        <div class="tool-bar">
+        </div>
+        <div class="canvas-container">
+          <div class="canvas-plane">
+            <!-- TODO replace with component -->
+            <draw-canvas scale="4"></draw-canvas>
+          </div>
+        </div>
+        <div class="settings-container">
+          <palette-tool count="4" color-count="4"></palette-tool>
+        </div>
+      </div>
     `;
   }
 };

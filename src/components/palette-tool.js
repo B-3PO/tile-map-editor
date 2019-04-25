@@ -9,12 +9,14 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   constructor() {
     super();
     this.cloneTemplate();
+    this.selectedPalette = 0;
   }
 
   connectedCallback() {
     this.bound_clickColor = this.clickColor.bind(this);
     this.bound_onColorChange = this.onColorChange.bind(this);
     this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
+    this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
   }
 
@@ -78,6 +80,31 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.selected_ = value;
   }
 
+  get selectedColor() {
+    if (!this.selected) return null;
+    const location = this.selectedLocation;
+    return this.palettes[location[0]][location[1]];
+  }
+
+  get selectedLocation() {
+    if (!this.selected) return null;
+    return this.selected.getAttribute('location').split('-');
+  }
+
+  get colorPicker() {
+    return this.shadowRoot.querySelector('color-picker');
+  }
+
+  get selectedPalette() {
+    return this.selectedPalette_;
+  }
+
+  set selectedPalette(value) {
+    value = parseInt(value);
+    if (value > this.count) value = this.count;
+    this.selectedPalette_ = value;
+  }
+
   isEdit() {
     return this.shadowRoot.querySelector('input[name="edit"]').checked;
   }
@@ -99,26 +126,50 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   clickColor(e) {
-    if (!e.target.classList.contains('color')) return;
+    this.selectPalette(e);
+    if (!e.target.classList.contains('color')) {
+      this.handleChange();
+      return;
+    }
 
     if (this.selected) this.selected.classList.remove('selected');
     this.selected = e.target;
     this.selected.classList.add('selected');
+    this.handleChange();
   }
 
   onColorChange(e) {
     if (this.isEdit()) this.updateSelected(e.detail.color);
+    this.handleChange();
+  }
+
+  selectPalette(e) {
+    if (!e.target.classList.contains('palette-select')) return;
+    [...this.shadowRoot.querySelectorAll('.palette-select')].forEach(el => el.checked = false);
+    e.target.checked = true;
+    this.selectedPalette = parseInt(e.target.getAttribute('id').replace('palette-', ''));
   }
 
   updateSelected(color) {
     if (!this.selected) return;
-    const location = this.selected.getAttribute('location').split('-');
+    const location = this.selectedLocation;
     this.palettes[location[0]][location[1]] = color;
     this.selected.style.backgroundColor = this.convertArrToRBGA(color);
   }
 
   convertArrToRBGA(arr) {
     return `rgba(${arr.join(',')})`;
+  }
+
+  handleChange() {
+    this.dispatchEvent(new CustomEvent('change', {
+      detail: {
+        selectedPalette: this.selectedPalette,
+        selectedColor: this.selectedColor,
+        pickerColor: this.colorPicker.color,
+        palettes: this.palettes
+      }
+    }));
   }
 
   styles() {
@@ -164,6 +215,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
       }
 
       .title {
+        margin-left: 32px;
         font-size: 18px;
         font-weight: 400;
         padding-left: 6px;
@@ -175,6 +227,11 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
         font-size: 14px;
         font-weight: bold;
         padding-right: 6px;
+      }
+
+      .palette-select {
+        margin-left: 8px;
+        margin-right: 12px;
       }
     `;
   }
@@ -190,6 +247,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
         ${[...new Array(this.count)].map((_, i) => `
           ${i !== 0 ? '<div class="divider"></div>' : ''}
           <div class="palette">
+            <input type="checkbox" ${i === 0 ? 'checked' : ''} id="palette-${i}" class="palette-select">
             ${[...new Array(this.colorCount)].map((_, j) => `
               <div class="color" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" location="${i}-${j}"></div>
             `).join('\n')}

@@ -5,6 +5,7 @@ const {
 } = require('@webformula/pax-core');
 require('./components/color-picker.js');
 require('./components/palette-tool.js');
+require('./components/draw-canvas.js');
 
 const layout = require('./layout');
 const pageMapper = new PageMapper('src/pages');

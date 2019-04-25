@@ -9,6 +9,8 @@ customElements.define('color-picker', class extends HTMLElementExtended {
   constructor() {
     super();
 
+    this.pickerX = 150;
+    this.pickerY = 0;
     this.colorBlockSize = 150;
     this.colorStripWidth = 30;
     this.rgbaColor = 'rgba(255,0,0,1)';
@@ -48,8 +50,6 @@ customElements.define('color-picker', class extends HTMLElementExtended {
     this.bound_colorStripMouseUp = this.colorStripMouseUp.bind(this);
     this.bound_colorStripMouseMove = this.colorStripMouseMove.bind(this);
     this.colorStrip.addEventListener('mousedown', this.bound_colorStripMouseDown);
-
-    this.setRGBInputs();
   }
 
   disconnectedCallback() {

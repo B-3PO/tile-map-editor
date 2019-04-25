@@ -308,6 +308,8 @@
           constructor() {
           super();
       
+          this.pickerX = 150;
+          this.pickerY = 0;
           this.colorBlockSize = 150;
           this.colorStripWidth = 30;
           this.rgbaColor = 'rgba(255,0,0,1)';
@@ -348,8 +350,6 @@
           this.bound_colorStripMouseUp = this.colorStripMouseUp.bind(this);
           this.bound_colorStripMouseMove = this.colorStripMouseMove.bind(this);
           this.colorStrip.addEventListener('mousedown', this.bound_colorStripMouseDown);
-      
-          this.setRGBInputs();
         }
       
         disconnectedCallback() {
@@ -727,6 +727,7 @@
       }
       
       .title {
+        margin-left: 32px;
         font-size: 18px;
         font-weight: 400;
         padding-left: 6px;
@@ -739,6 +740,11 @@
         font-weight: bold;
         padding-right: 6px;
       }
+      
+      .palette-select {
+        margin-left: 8px;
+        margin-right: 12px;
+      }
           </style>
           <render-block>
             <div class="palette-container">
@@ -750,6 +756,7 @@
         
                   
                   <div class="palette">
+                    <input type="checkbox" checked id="palette-0" class="palette-select">
                     
                       <div class="color" style="background-color: rgba(0,0,0,1);" location="0-0"></div>
                     
@@ -768,6 +775,7 @@
         
                   <div class="divider"></div>
                   <div class="palette">
+                    <input type="checkbox"  id="palette-1" class="palette-select">
                     
                       <div class="color" style="background-color: rgba(0,0,0,1);" location="1-0"></div>
                     
@@ -800,6 +808,7 @@
           constructor() {
           super();
           this.cloneTemplate();
+          this.selectedPalette = 0;
         }
           
       
@@ -807,6 +816,7 @@
           this.bound_clickColor = this.clickColor.bind(this);
           this.bound_onColorChange = this.onColorChange.bind(this);
           this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
+          this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
           this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
         }
       
@@ -870,6 +880,31 @@
           this.selected_ = value;
         }
       
+        get selectedColor() {
+          if (!this.selected) return null;
+          const location = this.selectedLocation;
+          return this.palettes[location[0]][location[1]];
+        }
+      
+        get selectedLocation() {
+          if (!this.selected) return null;
+          return this.selected.getAttribute('location').split('-');
+        }
+      
+        get colorPicker() {
+          return this.shadowRoot.querySelector('color-picker');
+        }
+      
+        get selectedPalette() {
+          return this.selectedPalette_;
+        }
+      
+        set selectedPalette(value) {
+          value = parseInt(value);
+          if (value > this.count) value = this.count;
+          this.selectedPalette_ = value;
+        }
+      
         isEdit() {
           return this.shadowRoot.querySelector('input[name="edit"]').checked;
         }
@@ -891,26 +926,50 @@
         }
       
         clickColor(e) {
-          if (!e.target.classList.contains('color')) return;
+          this.selectPalette(e);
+          if (!e.target.classList.contains('color')) {
+            this.handleChange();
+            return;
+          }
       
           if (this.selected) this.selected.classList.remove('selected');
           this.selected = e.target;
           this.selected.classList.add('selected');
+          this.handleChange();
         }
       
         onColorChange(e) {
           if (this.isEdit()) this.updateSelected(e.detail.color);
+          this.handleChange();
+        }
+      
+        selectPalette(e) {
+          if (!e.target.classList.contains('palette-select')) return;
+          [...this.shadowRoot.querySelectorAll('.palette-select')].forEach(el => el.checked = false);
+          e.target.checked = true;
+          this.selectedPalette = parseInt(e.target.getAttribute('id').replace('palette-', ''));
         }
       
         updateSelected(color) {
           if (!this.selected) return;
-          const location = this.selected.getAttribute('location').split('-');
+          const location = this.selectedLocation;
           this.palettes[location[0]][location[1]] = color;
           this.selected.style.backgroundColor = this.convertArrToRBGA(color);
         }
       
         convertArrToRBGA(arr) {
           return `rgba(${arr.join(',')})`;
+        }
+      
+        handleChange() {
+          this.dispatchEvent(new CustomEvent('change', {
+            detail: {
+              selectedPalette: this.selectedPalette,
+              selectedColor: this.selectedColor,
+              pickerColor: this.colorPicker.color,
+              palettes: this.palettes
+            }
+          }));
         }
       
         styles() {
@@ -956,6 +1015,7 @@
             }
       
             .title {
+              margin-left: 32px;
               font-size: 18px;
               font-weight: 400;
               padding-left: 6px;
@@ -967,6 +1027,11 @@
               font-size: 14px;
               font-weight: bold;
               padding-right: 6px;
+            }
+      
+            .palette-select {
+              margin-left: 8px;
+              margin-right: 12px;
             }
           `;
         }
@@ -982,6 +1047,7 @@
               ${[...new Array(this.count)].map((_, i) => `
                 ${i !== 0 ? '<div class="divider"></div>' : ''}
                 <div class="palette">
+                  <input type="checkbox" ${i === 0 ? 'checked' : ''} id="palette-${i}" class="palette-select">
                   ${[...new Array(this.colorCount)].map((_, j) => `
                     <div class="color" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" location="${i}-${j}"></div>
                   `).join('\n')}
@@ -1016,18 +1082,58 @@
               }
             }
           );
-          });
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','draw-canvas');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        cursor: none;
+      }
+      
+      .container {
+        position: relative;
+        cursor: none;
+      }
+      
+      .cursor {
+        position: absolute;
+        z-index: 10;
+        cursor: none;
+        user-select: none;
+        pointer-events: none;
+        width: 4px;
+        height: 4px;
+        border: 1px solid #DDD;
+      }
+          </style>
+          <render-block>
+            <div class="container">
+        <div class="cursor"></div>
+        <canvas id="canvas" width="640" height="576"></canvas>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("draw-canvas", 
+            class drawCanvas extends HTMLElement {
+              
+          
         
-    
-      class Home extends Page {
-        constructor() {
+          constructor() {
           super();
-          this.canvasX = 0;
-          this.canvasY = 0;
+      
           this.canvasWidth = 160;
           this.canvasHeight = 144;
-          this.scale = 4;
+          this.scale_ = 4;
+      
+          this.cloneTemplate();
         }
+          
       
         connectedCallback() {
           const canvas_ = this.canvas;
@@ -1045,6 +1151,8 @@
           context_.fillStyle = 'white';
           context_.scale(this.scale, this.scale);
           context_.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+          this.color = [0,0,0,1];
+          this.inited = true;
         }
       
         disconnectedCallback() {
@@ -1055,16 +1163,52 @@
           canvas_.removeEventListener('mousemove', this.bound_mouseMove);
         }
       
-        get title() {
-          return 'Home';
+        static get observedAttributes() {
+          return ['scale', 'color'];
+        }
+      
+        attributeChangedCallback(name, oldValue, newValue) {
+          if (name === 'scale') this.scale = newValue;
+          if (name === 'color') this.color = newValue;
+        }
+      
+        get color() {
+          return this.color_;
+        }
+      
+        set color(value) {
+          if (!value) return;
+          this.cursor.style.backgroundColor = `rgba(${value.join(',')})`;
+          this.color_ = `rgba(${value.join(',')})`;
         }
       
         get canvas() {
-          return document.querySelector('#canvas');
+          return this.shadowRoot.querySelector('#canvas');
         }
       
         get context() {
           return this.canvas.getContext('2d');
+        }
+      
+        get scale() {
+          return this.scale_;
+        }
+      
+        set scale(value) {
+          value = parseFloat(value);
+          if (value < 1) value = 1;
+          this.scale_ = value;
+          this.cursor.style.width = `${value}px`;
+          this.cursor.style.height = `${value}px`;
+          if (this.inited) {
+            this.render();
+            this.context.scale(value, value);
+          }
+        }
+      
+        get cursor() {
+          if (!this.cursor_) this.cursor_ = this.shadowRoot.querySelector('.cursor');
+          return this.cursor_;
         }
       
         mouseDown(e) {
@@ -1081,24 +1225,159 @@
         }
       
         mouseMove(e) {
-          if (this.isMouseDown) {
-            this.fillPixel(e.clientX, e.clientY);
-          }
-      
-          // TODO add pixel icon display
+          const bounds = this.getBoundingClientRect();
+          if (this.isMouseDown) this.fillPixel(e.clientX, e.clientY);
+          let [x, y] = this.snapToPixel(e.clientX - bounds.left, e.clientY - bounds.top);
+          this.cursor.style.left = `${x}px`;
+          this.cursor.style.top = `${y}px`;
         }
       
-        fillPixel(x, y, color = '#000000') {
-          // TODO add pixel snapping for scale
+        fillPixel(x, y) {
+          const bounds = this.getBoundingClientRect();
+          x -= bounds.left;
+          y -= bounds.top;
+          const [x2, y2] = this.snapToPixel(x, y);
+          x = x2;
+          y = y2;
+      
           const context_ = this.context;
-          context_.fillStyle = color;
-          context_.fillRect((x / (this.scale * this.scale)) - this.canvasX, (y / (this.scale * this.scale)) - this.canvasY, 1, 1);
+          context_.fillStyle = this.color;
+          context_.fillRect(x / this.scale, y / this.scale, 1, 1);
+        }
+      
+        snapToPixel(x, y) {
+          x -= x % this.scale;
+          if (x < 0) x = 0;
+          y -= y % this.scale;
+          if (y < 0) y = 0;
+          return [x, y];
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              cursor: none;
+            }
+      
+            .container {
+              position: relative;
+              cursor: none;
+            }
+      
+            .cursor {
+              position: absolute;
+              z-index: 10;
+              cursor: none;
+              user-select: none;
+              pointer-events: none;
+              width: 4px;
+              height: 4px;
+              border: 1px solid #DDD;
+            }
+          `;
         }
       
         template() {
           return html`
-            <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
-            <palette-tool count="4" color-count="4"></palette-tool>
+            <div class="container">
+              <div class="cursor"></div>
+              <canvas id="canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
+            </div>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('draw-canvas');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
+          });
+        
+    
+      class Home extends Page {
+        constructor() {
+          super();
+          this.canvasX = 0;
+          this.canvasY = 0;
+          this.canvasWidth = 160;
+          this.canvasHeight = 144;
+          this.scale = 4;
+        }
+      
+        connectedCallback() {
+          this.bound_paletteChange = this.paletteChange.bind(this);
+          this.paletteTool.addEventListener('change', this.bound_paletteChange);
+      
+          this.centerCanvas();
+        }
+      
+        disconnectedCallback() {
+          this.paletteTool.removeEventListener('change', this.bound_paletteChange);
+        }
+      
+        get title() {
+          return 'Home';
+        }
+      
+        get paletteTool() {
+          return document.querySelector('palette-tool');
+        }
+      
+        paletteChange(e) {
+          this.canvas.color = e.detail.selectedColor;
+        }
+      
+        get canvasContainer() {
+          return document.querySelector('.canvas-container');
+        }
+      
+        get canvasPlane() {
+          return document.querySelector('.canvas-plane');
+        }
+      
+        get canvas() {
+          return document.querySelector('draw-canvas');
+        }
+      
+        centerCanvas() {
+          const containerBounds = this.canvasContainer.getBoundingClientRect();
+          const canvasBounds = this.canvas.getBoundingClientRect();
+          this.canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
+          this.canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
+        }
+      
+        template() {
+          return html`
+            <div class="main-container">
+              <div class="tool-bar">
+              </div>
+              <div class="canvas-container">
+                <div class="canvas-plane">
+                  <!-- TODO replace with component -->
+                  <draw-canvas scale="4"></draw-canvas>
+                </div>
+              </div>
+              <div class="settings-container">
+                <palette-tool count="4" color-count="4"></palette-tool>
+              </div>
+            </div>
           `;
         }
       }
@@ -1113,13 +1392,25 @@
     <style>
       
       
+      
     </style>
   </head>
 
   <body>
     <render-block-page>
-      <canvas id="canvas" width="640" height="576"></canvas>
-      <palette-tool count="4" color-count="4"></palette-tool>
+      <div class="main-container">
+        <div class="tool-bar">
+        </div>
+        <div class="canvas-container">
+          <div class="canvas-plane">
+            <!-- TODO replace with component -->
+            <draw-canvas scale="4"></draw-canvas>
+          </div>
+        </div>
+        <div class="settings-container">
+          <palette-tool count="4" color-count="4"></palette-tool>
+        </div>
+      </div>
     </render-block-page>
   </body>
 </html>
