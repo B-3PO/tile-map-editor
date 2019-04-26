@@ -61,7 +61,7 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
         },
         palette: {
           count: this.paletteCount,
-          paletteColorCount: this.paletteColorCount
+          colorCount: this.paletteColorCount
         }
       }
     }));
@@ -227,7 +227,7 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
               <input name="palette-count" type="number" value="1" >
               <br/>
               <label for="palette-color-count">colors</label>
-              <input name="palette-color-count" type="number" value="8" >
+              <input name="palette-color-count" type="number" value="4" >
               <span>per palette</span>
             </div>
 

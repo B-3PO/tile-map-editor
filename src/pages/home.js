@@ -58,8 +58,13 @@ module.exports = class Home extends Page {
     this.tileY = e.detail.tile.y;
 
     // set canvas size
+    // TODO implament cancas size
     this.canvasWidth = e.detail.size.x;
     this.canvasHeight = e.detail.size.y;
+
+    // set palette
+    this.paletteTool.colorCount = e.detail.palette.colorCount;
+    this.paletteTool.count = e.detail.palette.count;
   }
 
   centerCanvas() {

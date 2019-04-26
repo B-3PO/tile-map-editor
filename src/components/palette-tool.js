@@ -35,7 +35,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   get count() {
-    return this.count_ || 2;
+    return this.count_ || 1;
   }
 
   set count(value) {
@@ -49,6 +49,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     return this.colorCount_ || 4;
   }
 
+  // TODO regenrate color if the colorCount increases
   set colorCount(value) {
     value = parseInt(value);
     if (value < 1) value = 1;

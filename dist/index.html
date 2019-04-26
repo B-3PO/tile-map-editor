@@ -784,25 +784,6 @@
                   </div>
         
                 
-        
-                  <div class="divider"></div>
-                  <div class="palette">
-                    <input type="checkbox"  id="palette-1" class="palette-select">
-                    
-                      <div class="color" style="background-color: rgba(0,0,0,1);" location="1-0"></div>
-                    
-        
-                      <div class="color" style="background-color: rgba(63,63,63,1);" location="1-1"></div>
-                    
-        
-                      <div class="color" style="background-color: rgba(127,127,127,1);" location="1-2"></div>
-                    
-        
-                      <div class="color" style="background-color: rgba(191,191,191,1);" location="1-3"></div>
-                    
-                  </div>
-        
-                
       
         <div class="spacer"></div>
         <color-picker></color-picker>
@@ -847,7 +828,7 @@
         }
       
         get count() {
-          return this.count_ || 2;
+          return this.count_ || 1;
         }
       
         set count(value) {
@@ -861,6 +842,7 @@
           return this.colorCount_ || 4;
         }
       
+        // TODO regenrate color if the colorCount increases
         set colorCount(value) {
           value = parseInt(value);
           if (value < 1) value = 1;
@@ -2053,7 +2035,7 @@
               <input name="palette-count" type="number" value="1" >
               <br/>
               <label for="palette-color-count">colors</label>
-              <input name="palette-color-count" type="number" value="8" >
+              <input name="palette-color-count" type="number" value="4" >
               <span>per palette</span>
             </div>
       
@@ -2135,7 +2117,7 @@
               },
               palette: {
                 count: this.paletteCount,
-                paletteColorCount: this.paletteColorCount
+                colorCount: this.paletteColorCount
               }
             }
           }));
@@ -2301,7 +2283,7 @@
                     <input name="palette-count" type="number" value="1" >
                     <br/>
                     <label for="palette-color-count">colors</label>
-                    <input name="palette-color-count" type="number" value="8" >
+                    <input name="palette-color-count" type="number" value="4" >
                     <span>per palette</span>
                   </div>
       
@@ -2402,8 +2384,13 @@
           this.tileY = e.detail.tile.y;
       
           // set canvas size
+          // TODO implament cancas size
           this.canvasWidth = e.detail.size.x;
           this.canvasHeight = e.detail.size.y;
+      
+          // set palette
+          this.paletteTool.colorCount = e.detail.palette.colorCount;
+          this.paletteTool.count = e.detail.palette.count;
         }
       
         centerCanvas() {
