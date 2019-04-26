@@ -47,7 +47,6 @@ module.exports = class Home extends Page {
   }
 
   onCreate(e) {
-    console.log(e.detail);
     this.entryDialog.removeEventListener('create', this.bound_onCreate);
 
     // set tile size and update the grid overlay settings
@@ -61,6 +60,9 @@ module.exports = class Home extends Page {
     // TODO implament cancas size
     this.canvasWidth = e.detail.size.x;
     this.canvasHeight = e.detail.size.y;
+    this.canvas.width = this.canvasWidth;
+    this.canvas.height = this.canvasHeight;
+    this.centerCanvas();
 
     // set palette
     this.paletteTool.colorCount = e.detail.palette.colorCount;
@@ -116,7 +118,7 @@ module.exports = class Home extends Page {
         <div class="canvas-container">
           <div class="canvas-plane">
             <!-- TODO replace with component -->
-            <draw-canvas scale="4"></draw-canvas>
+            <draw-canvas width="${this.canvasWidth}" height="${this.canvasHeight}" scale="4"></draw-canvas>
           </div>
           <div class="scale-container">
             <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>

@@ -13,10 +13,10 @@ const {
 customElements.define('draw-canvas', class extends HTMLElementExtended {
   constructor() {
     super();
-
-    this.canvasWidth = 160;
-    this.canvasHeight = 144;
-    this.scale_ = 4;
+    console.log(this.getAttribute('width'))
+    this.canvasWidth = this.hasAttribute('width') ? parseInt(this.getAttribute('width')) : 160;
+    this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
+    this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
     this.color_ = [0,0,0,255];
 
     this.cloneTemplate();
@@ -62,13 +62,16 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   static get observedAttributes() {
-    return ['scale', 'color', 'gridSize'];
+    return ['width', 'height', 'scale', 'color', 'gridSize'];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
+    if (!this.inited) return;
     if (name === 'scale') this.scale = newValue;
     if (name === 'color') this.color = newValue;
     if (name === 'gridSize') this.gridSize = newValue;
+    if (name === 'width') this.width = newValue;
+    if (name === 'height') this.height = newValue;
   }
 
   get color() {
@@ -111,6 +114,44 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   get scale() {
     return this.scale_;
+  }
+
+  get width() {
+    return this.canvasWidth;
+  }
+
+  set width(value) {
+    this.canvasWidth = parseInt(value);
+    this.storeCanvas();
+    // disconnect listenres, we are going to redraw the screen and the elements will change
+    this.disconnectedCallback();
+    // redraw elements
+    this.render();
+    // add back evnets
+    this.addEvents();
+    // redraw canvas
+    this.redrawCanvas();
+    // optional draw grid
+    if (this.showGrid_) this.drawGrid();
+  }
+
+  get height() {
+    return this.canvasHeight;
+  }
+
+  set height(value) {
+    this.canvasHeight = parseInt(value);
+    this.storeCanvas();
+    // disconnect listenres, we are going to redraw the screen and the elements will change
+    this.disconnectedCallback();
+    // redraw elements
+    this.render();
+    // add back evnets
+    this.addEvents();
+    // redraw canvas
+    this.redrawCanvas();
+    // optional draw grid
+    if (this.showGrid_) this.drawGrid();
   }
 
   set scale(value) {

@@ -1141,10 +1141,10 @@
         
           constructor() {
           super();
-      
-          this.canvasWidth = 160;
-          this.canvasHeight = 144;
-          this.scale_ = 4;
+          console.log(this.getAttribute('width'))
+          this.canvasWidth = this.hasAttribute('width') ? parseInt(this.getAttribute('width')) : 160;
+          this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
+          this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
           this.color_ = [0,0,0,255];
       
           this.cloneTemplate();
@@ -1191,13 +1191,16 @@
         }
       
         static get observedAttributes() {
-          return ['scale', 'color', 'gridSize'];
+          return ['width', 'height', 'scale', 'color', 'gridSize'];
         }
       
         attributeChangedCallback(name, oldValue, newValue) {
+          if (!this.inited) return;
           if (name === 'scale') this.scale = newValue;
           if (name === 'color') this.color = newValue;
           if (name === 'gridSize') this.gridSize = newValue;
+          if (name === 'width') this.width = newValue;
+          if (name === 'height') this.height = newValue;
         }
       
         get color() {
@@ -1240,6 +1243,44 @@
       
         get scale() {
           return this.scale_;
+        }
+      
+        get width() {
+          return this.canvasWidth;
+        }
+      
+        set width(value) {
+          this.canvasWidth = parseInt(value);
+          this.storeCanvas();
+          // disconnect listenres, we are going to redraw the screen and the elements will change
+          this.disconnectedCallback();
+          // redraw elements
+          this.render();
+          // add back evnets
+          this.addEvents();
+          // redraw canvas
+          this.redrawCanvas();
+          // optional draw grid
+          if (this.showGrid_) this.drawGrid();
+        }
+      
+        get height() {
+          return this.canvasHeight;
+        }
+      
+        set height(value) {
+          this.canvasHeight = parseInt(value);
+          this.storeCanvas();
+          // disconnect listenres, we are going to redraw the screen and the elements will change
+          this.disconnectedCallback();
+          // redraw elements
+          this.render();
+          // add back evnets
+          this.addEvents();
+          // redraw canvas
+          this.redrawCanvas();
+          // optional draw grid
+          if (this.showGrid_) this.drawGrid();
         }
       
         set scale(value) {
@@ -2373,7 +2414,6 @@
         }
       
         onCreate(e) {
-          console.log(e.detail);
           this.entryDialog.removeEventListener('create', this.bound_onCreate);
       
           // set tile size and update the grid overlay settings
@@ -2387,6 +2427,9 @@
           // TODO implament cancas size
           this.canvasWidth = e.detail.size.x;
           this.canvasHeight = e.detail.size.y;
+          this.canvas.width = this.canvasWidth;
+          this.canvas.height = this.canvasHeight;
+          this.centerCanvas();
       
           // set palette
           this.paletteTool.colorCount = e.detail.palette.colorCount;
@@ -2442,7 +2485,7 @@
               <div class="canvas-container">
                 <div class="canvas-plane">
                   <!-- TODO replace with component -->
-                  <draw-canvas scale="4"></draw-canvas>
+                  <draw-canvas width="${this.canvasWidth}" height="${this.canvasHeight}" scale="4"></draw-canvas>
                 </div>
                 <div class="scale-container">
                   <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
@@ -2491,7 +2534,7 @@
         <div class="canvas-container">
           <div class="canvas-plane">
             <!-- TODO replace with component -->
-            <draw-canvas scale="4"></draw-canvas>
+            <draw-canvas width="160" height="144" scale="4"></draw-canvas>
           </div>
           <div class="scale-container">
             <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
