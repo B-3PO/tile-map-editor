@@ -12,20 +12,28 @@ customElements.define('grid-settings', class extends HTMLElementExtended {
   }
 
   connectedCallback() {
-    this.pixelInput.value = 8;
-    this.bound_inputChange = this.inputChange.bind(this);
+    this.inputX.value = 8;
+    this.inputY.value = 8;
+    this.bound_inputXChange = this.inputXChange.bind(this);
+    this.bound_inputYChange = this.inputYChange.bind(this);
     this.bound_checkboxChange = this.checkboxChange.bind(this);
-    this.pixelInput.addEventListener('change', this.bound_inputChange);
+    this.inputX.addEventListener('change', this.bound_inputXChange);
+    this.inputY.addEventListener('change', this.bound_inputYChange);
     this.checkbox.addEventListener('change', this.bound_checkboxChange);
   }
 
   disconnectedCallback() {
-    this.pixelInput.removeEventListener('change', this.bound_inputChange);
+    this.inputX.removeEventListener('change', this.bound_inputXChange);
+    this.inputY.removeEventListener('change', this.bound_inputYChange);
     this.checkbox.removeEventListener('change', this.bound_checkboxChange);
   }
 
-  get pixelInput() {
-    return this.shadowRoot.querySelector('input[type="text"]');
+  get inputX() {
+    return this.shadowRoot.querySelector('#input-x');
+  }
+
+  get inputY() {
+    return this.shadowRoot.querySelector('#input-y');
   }
 
   get checkbox() {
@@ -40,16 +48,31 @@ customElements.define('grid-settings', class extends HTMLElementExtended {
     this.show_ = value;
   }
 
-  get pixels() {
-    return this.pixels_;
+  get valueX() {
+    return this.valueX_;
   }
 
-  set pixels(value) {
-    this.pixels_ = value;
+  set valueX(value) {
+    this.valueX_ = value;
+    this.inputX.value = value;
   }
 
-  inputChange(e) {
-    this.pixels = this.pixelInput.value;
+  get valueY() {
+    return this.valueY_;
+  }
+
+  set valueY(value) {
+    this.valueY_ = value;
+    this.inputY.value = value;
+  }
+
+  inputXChange(e) {
+    this.valueX = this.inputX.value;
+    this.handleChange();
+  }
+
+  inputYChange(e) {
+    this.valueY = this.inputY.value;
     this.handleChange();
   }
 
@@ -62,7 +85,8 @@ customElements.define('grid-settings', class extends HTMLElementExtended {
     this.dispatchEvent(new CustomEvent('change', {
       detail: {
         show: this.show,
-        pixels: this.pixels
+        valueX: this.valueX,
+        valueY: this.valueY
       }
     }));
   }
@@ -78,10 +102,19 @@ customElements.define('grid-settings', class extends HTMLElementExtended {
         padding-right: 8px;
       }
 
-      #pixel-input {
+      .pixel-input {
         width: 20px;
         margin: 0;
-        margin-left: 12px;
+      }
+
+      span {
+        font-size: 11px;
+        color: #666;
+      }
+
+      label {
+        font-size: 13px;
+        color: #444;
       }
     `;
   }
@@ -91,7 +124,11 @@ customElements.define('grid-settings', class extends HTMLElementExtended {
     return html`
       <span>Grid</span>
       <input type="checkbox">
-      <input type="text" id="pixel-input">
+      <label>X</label>
+      <input type="text" class="pixel-input" id="input-x">
+      <span>px</span>
+      <label>Y</label>
+      <input type="text" class="pixel-input" id="input-y">
       <span>px</span>
     `;
   }

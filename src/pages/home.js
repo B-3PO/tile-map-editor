@@ -3,24 +3,27 @@ const { Page, html } = require('@webformula/pax-core');
 module.exports = class Home extends Page {
   constructor() {
     super();
-    this.canvasX = 0;
-    this.canvasY = 0;
+
     this.canvasWidth = 160;
     this.canvasHeight = 144;
+    this.tileX = 8;
+    this.tileY = 8;
     this.scale = 4;
   }
 
   connectedCallback() {
     this.bound_paletteChange = this.paletteChange.bind(this);
     this.paletteTool.addEventListener('change', this.bound_paletteChange);
-
     this.centerCanvas();
-
     this.canvas.color = this.paletteTool.selectedColor;
+
+    this.bound_onCreate = this.onCreate.bind(this);
+    this.entryDialog.addEventListener('create', this.bound_onCreate);
   }
 
   disconnectedCallback() {
     this.paletteTool.removeEventListener('change', this.bound_paletteChange);
+    this.entryDialog.removeEventListener('create', this.bound_onCreate);
   }
 
   get title() {
@@ -31,27 +34,40 @@ module.exports = class Home extends Page {
     return document.querySelector('palette-tool');
   }
 
-  paletteChange(e) {
-    this.canvas.color = e.detail.selectedColor;
-  }
-
-  get canvasContainer() {
-    return document.querySelector('.canvas-container');
-  }
-
-  get canvasPlane() {
-    return document.querySelector('.canvas-plane');
-  }
-
   get canvas() {
     return document.querySelector('draw-canvas');
   }
 
+  get entryDialog() {
+    return document.querySelector('entry-dialog');
+  }
+
+  paletteChange(e) {
+    this.canvas.color = e.detail.selectedColor;
+  }
+
+  onCreate(e) {
+    console.log(e.detail);
+    this.entryDialog.removeEventListener('create', this.bound_onCreate);
+
+    // set tile size and update the grid overlay settings
+    const gridSettings = document.querySelector('grid-settings');
+    gridSettings.valueX = e.detail.tile.x;
+    gridSettings.valueY = e.detail.tile.y;
+    this.tileX = e.detail.tile.x;
+    this.tileY = e.detail.tile.y;
+
+    // set canvas size
+    this.canvasWidth = e.detail.size.x;
+    this.canvasHeight = e.detail.size.y;
+  }
+
   centerCanvas() {
-    const containerBounds = this.canvasContainer.getBoundingClientRect();
+    const canvasPlane = document.querySelector('.canvas-plane');
+    const containerBounds = document.querySelector('.canvas-container').getBoundingClientRect();
     const canvasBounds = this.canvas.getBoundingClientRect();
-    this.canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
-    this.canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
+    canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
+    canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
   }
 
   scaleCanvas(scale) {
@@ -59,9 +75,9 @@ module.exports = class Home extends Page {
     this.centerCanvas();
   }
 
-  updateGrid(show, pixels) {
+  updateGrid(show, x, y) {
     if (show) {
-      this.canvas.gridSize = pixels;
+      this.canvas.gridSize = {x, y};
       this.canvas.showGrid();
     } else this.canvas.hideGrid();
   }
@@ -80,6 +96,8 @@ module.exports = class Home extends Page {
 
   template() {
     return html`
+      <entry-dialog></entry-dialog>
+
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button">edit</div>
@@ -97,7 +115,7 @@ module.exports = class Home extends Page {
           </div>
           <div class="scale-container">
             <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
-            <grid-settings onchange="$Home.updateGrid(this.show, this.pixels)"></grid-settings>
+            <grid-settings onchange="$Home.updateGrid(this.show, this.valueX, this.valueY)"></grid-settings>
           </div>
         </div>
         <div class="settings-container">

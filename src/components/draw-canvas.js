@@ -147,11 +147,11 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   get gridSize() {
-    return this.gridSize_ || 8;
+    return this.gridSize_ || {x: 8, y: 8};
   }
 
-  set gridSize(value) {
-    this.gridSize_ = parseInt(value);
+  set gridSize({x, y}) {
+    this.gridSize_ = {x, y};
     if (this.showGrid) this.drawGrid();
   }
 
@@ -259,19 +259,22 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const ctx = this.gridContext;
     const width = this.canvasWidth * this.scale;
     const height = this.canvasHeight * this.scale;
-    const length = width;
-    const gridSize = this.gridSize * this.scale;
-    let currentColumn = gridSize;
+    const gridSizeX = this.gridSize.x * this.scale;
+    const gridSizeY = this.gridSize.y * this.scale;
+    let currentColumn = gridSizeX;
+    let currentRow = gridSizeY;
     ctx.canvas.width = ctx.canvas.width;
 
-    while (currentColumn < length) {
+    while (currentColumn < width) {
       ctx.moveTo(currentColumn, 0);
       ctx.lineTo(currentColumn, height);
+      currentColumn += gridSizeX;
+    }
 
-      ctx.moveTo(0, currentColumn);
-      ctx.lineTo(width, currentColumn);
-
-      currentColumn += gridSize;
+    while (currentRow < height) {
+      ctx.moveTo(0, currentRow);
+      ctx.lineTo(width, currentRow);
+      currentRow += gridSizeY;
     }
 
     ctx.lineWidth = 0.5;

@@ -1294,11 +1294,11 @@
         }
       
         get gridSize() {
-          return this.gridSize_ || 8;
+          return this.gridSize_ || {x: 8, y: 8};
         }
       
-        set gridSize(value) {
-          this.gridSize_ = parseInt(value);
+        set gridSize({x, y}) {
+          this.gridSize_ = {x, y};
           if (this.showGrid) this.drawGrid();
         }
       
@@ -1406,19 +1406,22 @@
           const ctx = this.gridContext;
           const width = this.canvasWidth * this.scale;
           const height = this.canvasHeight * this.scale;
-          const length = width;
-          const gridSize = this.gridSize * this.scale;
-          let currentColumn = gridSize;
+          const gridSizeX = this.gridSize.x * this.scale;
+          const gridSizeY = this.gridSize.y * this.scale;
+          let currentColumn = gridSizeX;
+          let currentRow = gridSizeY;
           ctx.canvas.width = ctx.canvas.width;
       
-          while (currentColumn < length) {
+          while (currentColumn < width) {
             ctx.moveTo(currentColumn, 0);
             ctx.lineTo(currentColumn, height);
+            currentColumn += gridSizeX;
+          }
       
-            ctx.moveTo(0, currentColumn);
-            ctx.lineTo(width, currentColumn);
-      
-            currentColumn += gridSize;
+          while (currentRow < height) {
+            ctx.moveTo(0, currentRow);
+            ctx.lineTo(width, currentRow);
+            currentRow += gridSizeY;
           }
       
           ctx.lineWidth = 0.5;
@@ -1535,7 +1538,7 @@
       }
           </style>
           <render-block>
-            <span>%</span>
+            <span>x</span>
       <input type="text" id="scale-input">
       <input type="range" min="1" max="10" value="" id="scale-range">
           </render-block>
@@ -1666,7 +1669,7 @@
       
         template() {
           return html`
-            <span>%</span>
+            <span>x</span>
             <input type="text" id="scale-input">
             <input type="range" min="1" max="10" value="${this.value}" id="scale-range">
           `;
@@ -1708,16 +1711,29 @@
         padding-right: 8px;
       }
       
-      #pixel-input {
+      .pixel-input {
         width: 20px;
         margin: 0;
-        margin-left: 12px;
+      }
+      
+      span {
+        font-size: 11px;
+        color: #666;
+      }
+      
+      label {
+        font-size: 13px;
+        color: #444;
       }
           </style>
           <render-block>
             <span>Grid</span>
       <input type="checkbox">
-      <input type="text" id="pixel-input">
+      <label>X</label>
+      <input type="text" class="pixel-input" id="input-x">
+      <span>px</span>
+      <label>Y</label>
+      <input type="text" class="pixel-input" id="input-y">
       <span>px</span>
           </render-block>
           `;
@@ -1736,20 +1752,28 @@
           
       
         connectedCallback() {
-          this.pixelInput.value = 8;
-          this.bound_inputChange = this.inputChange.bind(this);
+          this.inputX.value = 8;
+          this.inputY.value = 8;
+          this.bound_inputXChange = this.inputXChange.bind(this);
+          this.bound_inputYChange = this.inputYChange.bind(this);
           this.bound_checkboxChange = this.checkboxChange.bind(this);
-          this.pixelInput.addEventListener('change', this.bound_inputChange);
+          this.inputX.addEventListener('change', this.bound_inputXChange);
+          this.inputY.addEventListener('change', this.bound_inputYChange);
           this.checkbox.addEventListener('change', this.bound_checkboxChange);
         }
       
         disconnectedCallback() {
-          this.pixelInput.removeEventListener('change', this.bound_inputChange);
+          this.inputX.removeEventListener('change', this.bound_inputXChange);
+          this.inputY.removeEventListener('change', this.bound_inputYChange);
           this.checkbox.removeEventListener('change', this.bound_checkboxChange);
         }
       
-        get pixelInput() {
-          return this.shadowRoot.querySelector('input[type="text"]');
+        get inputX() {
+          return this.shadowRoot.querySelector('#input-x');
+        }
+      
+        get inputY() {
+          return this.shadowRoot.querySelector('#input-y');
         }
       
         get checkbox() {
@@ -1764,16 +1788,31 @@
           this.show_ = value;
         }
       
-        get pixels() {
-          return this.pixels_;
+        get valueX() {
+          return this.valueX_;
         }
       
-        set pixels(value) {
-          this.pixels_ = value;
+        set valueX(value) {
+          this.valueX_ = value;
+          this.inputX.value = value;
         }
       
-        inputChange(e) {
-          this.pixels = this.pixelInput.value;
+        get valueY() {
+          return this.valueY_;
+        }
+      
+        set valueY(value) {
+          this.valueY_ = value;
+          this.inputY.value = value;
+        }
+      
+        inputXChange(e) {
+          this.valueX = this.inputX.value;
+          this.handleChange();
+        }
+      
+        inputYChange(e) {
+          this.valueY = this.inputY.value;
           this.handleChange();
         }
       
@@ -1786,7 +1825,8 @@
           this.dispatchEvent(new CustomEvent('change', {
             detail: {
               show: this.show,
-              pixels: this.pixels
+              valueX: this.valueX,
+              valueY: this.valueY
             }
           }));
         }
@@ -1802,10 +1842,19 @@
               padding-right: 8px;
             }
       
-            #pixel-input {
+            .pixel-input {
               width: 20px;
               margin: 0;
-              margin-left: 12px;
+            }
+      
+            span {
+              font-size: 11px;
+              color: #666;
+            }
+      
+            label {
+              font-size: 13px;
+              color: #444;
             }
           `;
         }
@@ -1815,7 +1864,11 @@
           return html`
             <span>Grid</span>
             <input type="checkbox">
-            <input type="text" id="pixel-input">
+            <label>X</label>
+            <input type="text" class="pixel-input" id="input-x">
+            <span>px</span>
+            <label>Y</label>
+            <input type="text" class="pixel-input" id="input-y">
             <span>px</span>
           `;
         }
@@ -1841,30 +1894,480 @@
               }
             }
           );
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','entry-dialog');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 11;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      
+      .container {
+        display: inline-block;
+        position: relative;
+        left: 50%;
+        top: 50%;
+        width: 500px;
+        height: auto;
+        transform: translate(-50%, -50%);
+      
+        background-color: #DDD;
+        border: 1px solid #999;
+        border-radius: 3px;
+        box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                    0 8px 10px 1px rgba(0,0,0,.14),
+                    0 3px 14px 2px rgba(0,0,0,.12);
+      }
+      
+      .title-bar {
+        padding: 8px;
+        padding-left: 16px;
+        background-color: #CCC;
+        border-bottom: 1px solid #aaa;
+      }
+      
+      .title {
+        font-size: 22px;
+        font-weight: bold;
+        color: #444;
+      }
+      
+      .sub-title {
+        font-size: 20px;
+        color: #444;
+        margin-bottom: 18px;
+      }
+      
+      .sub-header {
+        font-size: 16px;
+        color: #777;
+        margin-bottom: 4px;
+      }
+      
+      .choice-container {
+        display: flex;
+        flex-direction: row;
+        padding: 24px;
+      }
+      
+      .choice-1 {
+        flex: 3;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .choice-2 {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .control-container {
+        padding-bottom: 20px;
+      }
+      
+      .control-container label {
+        font-size: 17px;
+        color: #666;
+      }
+      
+      .control-container input {
+        width: 40px;
+      }
+      
+      .control-container span {
+        color: #999;
+        font-size: 11px;
+        padding-right: 16px;
+      }
+      
+      .controls {
+        padding-top: 12px;
+      }
+      
+      button {
+        align-items: center;
+        border: none;
+        border-radius: 4px;
+        box-sizing: border-box;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 33px;
+        justify-content: center;
+        line-height: 32px;
+        min-width: 64px;
+        outline: none;
+        overflow: hidden;
+        padding: 0 8px 0 8px;
+        position: relative;
+        vertical-align: middle;
+        margin: 0;
+        background-color: white;
+      }
+      
+      button:hover {
+        cursor: pointer;
+        background-color: #EEE;
+      }
+          </style>
+          <render-block>
+            <div class="container">
+        <div class="choice-container">
+          <div class="choice-1">
+            <span class="sub-title">Create</span>
+      
+            <div class="sub-header">Canvas size</div>
+            <div class="control-container">
+              <label for="pixels-x">x</label>
+              <input name="pixels-x" type="number" value="160" >
+              <span>px</span>
+              <label for="pixels-x">y</label>
+              <input name="pixels-y" type="number" value="144" >
+              <span>px</span>
+            </div>
+      
+            <div class="sub-header">Tile size</div>
+            <div class="control-container">
+              <label for="tile-x">x</label>
+              <input name="tile-x" type="number" value="8" >
+              <span>px</span>
+      
+              <label for="tile-y">y</label>
+              <input name="tile-y" type="number" value="8" >
+              <span>px</span>
+            </div>
+      
+            <div class="sub-header">Palettes</div>
+            <div class="control-container">
+              <label for="palette-count">count </label>
+              <input name="palette-count" type="number" value="1" >
+              <br/>
+              <label for="palette-color-count">colors</label>
+              <input name="palette-color-count" type="number" value="8" >
+              <span>per palette</span>
+            </div>
+      
+            <div class="controls">
+              <button id="create">create</button>
+            </div>
+          </div>
+          <div class="choice-2">
+            <span class="sub-title">Open</span>
+            <div class="controls">
+              <button>choose...</button>
+            </div>
+          </div>
+        </div>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("entry-dialog", 
+            class entryDialog extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.bound_create = this.create.bind(this);
+          this.createButton.addEventListener('click', this.bound_create);
+        }
+      
+        disconnectedCallback() {
+          this.createButton.removeEventListener('click', this.bound_create);
+        }
+      
+        get createButton() {
+          return this.shadowRoot.querySelector('#create');
+        }
+      
+        get pixelsX() {
+          return this.shadowRoot.querySelector('input[name="pixels-x"]').value;
+        }
+      
+        get pixelsY() {
+          return this.shadowRoot.querySelector('input[name="pixels-y"]').value;
+        }
+      
+        get tileX() {
+          return this.shadowRoot.querySelector('input[name="tile-x"]').value;
+        }
+      
+        get tileY() {
+          return this.shadowRoot.querySelector('input[name="tile-y"]').value;
+        }
+      
+        get paletteCount() {
+          return this.shadowRoot.querySelector('input[name="palette-count"]').value;
+        }
+      
+        get paletteColorCount() {
+          return this.shadowRoot.querySelector('input[name="palette-color-count"]').value;
+        }
+      
+        create() {
+          this.dispatchEvent(new CustomEvent('create', {
+            detail: {
+              size: {
+                x: this.pixelsX,
+                y: this.pixelsY
+              },
+              tile: {
+                x: this.tileX,
+                y: this.tileY
+              },
+              palette: {
+                count: this.paletteCount,
+                paletteColorCount: this.paletteColorCount
+              }
+            }
+          }));
+          this.remove();
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              position: fixed;
+              top: 0;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              z-index: 11;
+              background-color: rgba(0, 0, 0, 0.5);
+            }
+      
+            .container {
+              display: inline-block;
+              position: relative;
+              left: 50%;
+              top: 50%;
+              width: 500px;
+              height: auto;
+              transform: translate(-50%, -50%);
+      
+              background-color: #DDD;
+              border: 1px solid #999;
+              border-radius: 3px;
+              box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                          0 8px 10px 1px rgba(0,0,0,.14),
+                          0 3px 14px 2px rgba(0,0,0,.12);
+            }
+      
+            .title-bar {
+              padding: 8px;
+              padding-left: 16px;
+              background-color: #CCC;
+              border-bottom: 1px solid #aaa;
+            }
+      
+            .title {
+              font-size: 22px;
+              font-weight: bold;
+              color: #444;
+            }
+      
+            .sub-title {
+              font-size: 20px;
+              color: #444;
+              margin-bottom: 18px;
+            }
+      
+            .sub-header {
+              font-size: 16px;
+              color: #777;
+              margin-bottom: 4px;
+            }
+      
+            .choice-container {
+              display: flex;
+              flex-direction: row;
+              padding: 24px;
+            }
+      
+            .choice-1 {
+              flex: 3;
+              display: flex;
+              flex-direction: column;
+            }
+      
+            .choice-2 {
+              flex: 2;
+              display: flex;
+              flex-direction: column;
+            }
+      
+            .control-container {
+              padding-bottom: 20px;
+            }
+      
+            .control-container label {
+              font-size: 17px;
+              color: #666;
+            }
+      
+            .control-container input {
+              width: 40px;
+            }
+      
+            .control-container span {
+              color: #999;
+              font-size: 11px;
+              padding-right: 16px;
+            }
+      
+            .controls {
+              padding-top: 12px;
+            }
+      
+            button {
+              align-items: center;
+              border: none;
+              border-radius: 4px;
+              box-sizing: border-box;
+              display: inline-flex;
+              font-size: 14px;
+              font-weight: 500;
+              height: 33px;
+              justify-content: center;
+              line-height: 32px;
+              min-width: 64px;
+              outline: none;
+              overflow: hidden;
+              padding: 0 8px 0 8px;
+              position: relative;
+              vertical-align: middle;
+              margin: 0;
+              background-color: white;
+            }
+      
+            button:hover {
+              cursor: pointer;
+              background-color: #EEE;
+            }
+          `;
+        }
+      
+      
+        template() {
+          return html`
+            <div class="container">
+              <div class="choice-container">
+                <div class="choice-1">
+                  <span class="sub-title">Create</span>
+      
+                  <div class="sub-header">Canvas size</div>
+                  <div class="control-container">
+                    <label for="pixels-x">x</label>
+                    <input name="pixels-x" type="number" value="160" >
+                    <span>px</span>
+                    <label for="pixels-x">y</label>
+                    <input name="pixels-y" type="number" value="144" >
+                    <span>px</span>
+                  </div>
+      
+                  <div class="sub-header">Tile size</div>
+                  <div class="control-container">
+                    <label for="tile-x">x</label>
+                    <input name="tile-x" type="number" value="8" >
+                    <span>px</span>
+      
+                    <label for="tile-y">y</label>
+                    <input name="tile-y" type="number" value="8" >
+                    <span>px</span>
+                  </div>
+      
+                  <div class="sub-header">Palettes</div>
+                  <div class="control-container">
+                    <label for="palette-count">count </label>
+                    <input name="palette-count" type="number" value="1" >
+                    <br/>
+                    <label for="palette-color-count">colors</label>
+                    <input name="palette-color-count" type="number" value="8" >
+                    <span>per palette</span>
+                  </div>
+      
+                  <div class="controls">
+                    <button id="create">create</button>
+                  </div>
+                </div>
+                <div class="choice-2">
+                  <span class="sub-title">Open</span>
+                  <div class="controls">
+                    <button>choose...</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('entry-dialog');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
           });
         
     
       class Home extends Page {
         constructor() {
           super();
-          this.canvasX = 0;
-          this.canvasY = 0;
+      
           this.canvasWidth = 160;
           this.canvasHeight = 144;
+          this.tileX = 8;
+          this.tileY = 8;
           this.scale = 4;
         }
       
         connectedCallback() {
           this.bound_paletteChange = this.paletteChange.bind(this);
           this.paletteTool.addEventListener('change', this.bound_paletteChange);
-      
           this.centerCanvas();
-      
           this.canvas.color = this.paletteTool.selectedColor;
+      
+          this.bound_onCreate = this.onCreate.bind(this);
+          this.entryDialog.addEventListener('create', this.bound_onCreate);
         }
       
         disconnectedCallback() {
           this.paletteTool.removeEventListener('change', this.bound_paletteChange);
+          this.entryDialog.removeEventListener('create', this.bound_onCreate);
         }
       
         get title() {
@@ -1875,27 +2378,40 @@
           return document.querySelector('palette-tool');
         }
       
-        paletteChange(e) {
-          this.canvas.color = e.detail.selectedColor;
-        }
-      
-        get canvasContainer() {
-          return document.querySelector('.canvas-container');
-        }
-      
-        get canvasPlane() {
-          return document.querySelector('.canvas-plane');
-        }
-      
         get canvas() {
           return document.querySelector('draw-canvas');
         }
       
+        get entryDialog() {
+          return document.querySelector('entry-dialog');
+        }
+      
+        paletteChange(e) {
+          this.canvas.color = e.detail.selectedColor;
+        }
+      
+        onCreate(e) {
+          console.log(e.detail);
+          this.entryDialog.removeEventListener('create', this.bound_onCreate);
+      
+          // set tile size and update the grid overlay settings
+          const gridSettings = document.querySelector('grid-settings');
+          gridSettings.valueX = e.detail.tile.x;
+          gridSettings.valueY = e.detail.tile.y;
+          this.tileX = e.detail.tile.x;
+          this.tileY = e.detail.tile.y;
+      
+          // set canvas size
+          this.canvasWidth = e.detail.size.x;
+          this.canvasHeight = e.detail.size.y;
+        }
+      
         centerCanvas() {
-          const containerBounds = this.canvasContainer.getBoundingClientRect();
+          const canvasPlane = document.querySelector('.canvas-plane');
+          const containerBounds = document.querySelector('.canvas-container').getBoundingClientRect();
           const canvasBounds = this.canvas.getBoundingClientRect();
-          this.canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
-          this.canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
+          canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
+          canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
         }
       
         scaleCanvas(scale) {
@@ -1903,9 +2419,9 @@
           this.centerCanvas();
         }
       
-        updateGrid(show, pixels) {
+        updateGrid(show, x, y) {
           if (show) {
-            this.canvas.gridSize = pixels;
+            this.canvas.gridSize = {x, y};
             this.canvas.showGrid();
           } else this.canvas.hideGrid();
         }
@@ -1924,6 +2440,8 @@
       
         template() {
           return html`
+            <entry-dialog></entry-dialog>
+      
             <div class="main-container">
               <div class="tool-bar">
                 <div class="icon-button">edit</div>
@@ -1941,7 +2459,7 @@
                 </div>
                 <div class="scale-container">
                   <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
-                  <grid-settings onchange="$Home.updateGrid(this.show, this.pixels)"></grid-settings>
+                  <grid-settings onchange="$Home.updateGrid(this.show, this.valueX, this.valueY)"></grid-settings>
                 </div>
               </div>
               <div class="settings-container">
@@ -1965,11 +2483,14 @@
       
       
       
+      
     </style>
   </head>
 
   <body>
     <render-block-page>
+      <entry-dialog></entry-dialog>
+      
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button">edit</div>
@@ -1987,7 +2508,7 @@
           </div>
           <div class="scale-container">
             <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
-            <grid-settings onchange="$Home.updateGrid(this.show, this.pixels)"></grid-settings>
+            <grid-settings onchange="$Home.updateGrid(this.show, this.valueX, this.valueY)"></grid-settings>
           </div>
         </div>
         <div class="settings-container">

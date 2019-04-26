@@ -123,7 +123,7 @@ customElements.define('scale-range', class extends HTMLElementExtended {
 
   template() {
     return html`
-      <span>%</span>
+      <span>x</span>
       <input type="text" id="scale-input">
       <input type="range" min="1" max="10" value="${this.value}" id="scale-range">
     `;
