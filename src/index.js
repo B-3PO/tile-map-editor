@@ -1,7 +1,8 @@
 const {
   PageMapper,
   buildClient,
-  html
+  html,
+  global
 } = require('@webformula/pax-core');
 require('./components/color-picker.js');
 require('./components/palette-tool.js');
@@ -9,6 +10,8 @@ require('./components/draw-canvas.js');
 require('./components/scale-range.js');
 require('./components/grid-settings.js');
 require('./components/entry-dialog.js');
+
+global.loadFolder('src/global');
 
 const layout = require('./layout');
 const pageMapper = new PageMapper('src/pages');

@@ -93,3 +93,16 @@ grid-settings {
   background-color: #AAA;
   border-radius: 4px;
 }
+
+.icon-button-svg {
+  display: inline-block;
+  margin: 4px;
+  padding: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.icon-button-svg.selected {
+  background-color: #AAA;
+  border-radius: 4px;
+}

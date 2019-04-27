@@ -20,10 +20,13 @@
   },
   "homepage": "https://github.com/B-3PO/tile-map-editor#readme",
   "dependencies": {
-    "@webformula/pax-core": "github:webformula/pax-core",
+    "@webformula/pax-core": "file:../../webformula/pax-core",
     "http-server": "^0.11.1"
   },
   "devDependencies": {
     "watch": "^1.0.2"
+  },
+  "temo": {
+    "@webformula/pax-core": "github:webformula/pax-core"
   }
 }

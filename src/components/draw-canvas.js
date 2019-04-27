@@ -5,15 +5,13 @@ const {
   css
 } = require('@webformula/pax-core');
 
-// TODO store canvas state for redraw
-// TODO add pixel marker
 // TODO add tools: (pencil, brush, blur, spray, erase)
 // TODO add cursors based on tools
 
 customElements.define('draw-canvas', class extends HTMLElementExtended {
   constructor() {
     super();
-    console.log(this.getAttribute('width'))
+
     this.canvasWidth = this.hasAttribute('width') ? parseInt(this.getAttribute('width')) : 160;
     this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
     this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
@@ -110,6 +108,14 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   get tempContext() {
     return this.tempCanvas.getContext('2d');
+  }
+
+  get tempCanvas2() {
+    return this.shadowRoot.querySelector('#temp-canvas-2');
+  }
+
+  get tempContext2() {
+    return this.tempCanvas2.getContext('2d');
   }
 
   get scale() {
@@ -286,6 +292,23 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.canvasData = this.backgroundContext.getImageData(0, 0, this.canvasWidth * this.scale, this.canvasHeight * this.scale);
   }
 
+  getNormalizedCanvasData() {
+    this.storeCanvas();
+
+    // copy to identical canvis of ientical size
+    const tempCanvas = this.tempCanvas;
+    tempCanvas.width = this.canvasData.width;
+    tempCanvas.height = this.canvasData.height;
+    this.tempContext.putImageData(this.canvasData, 0, 0);
+
+    // use draw image, this has an option for streatching
+    const ctx = this.tempContext2;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tempCanvas, 0, 0, this.canvasData.width, this.canvasData.height, 0, 0, this.canvasWidth, this.canvasHeight);
+
+    return ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+  }
+
   showGrid() {
     this.showGrid_ = true;
     this.drawGrid();
@@ -321,6 +344,37 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     ctx.lineWidth = 0.5;
     ctx.strokeStyle = 'rgba(200,200,200,0.8)';
     ctx.stroke();
+  }
+
+  getTileData() {
+    const pData = this.getNormalizedCanvasData().data;
+    const width = this.canvasWidth;
+    const height = this.canvasHeight;
+    const tileWidth = this.gridSize.x;
+    const tileHeight = this.gridSize.y;
+    const tileRowCount = width / tileWidth;
+    const tiles = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => []);
+
+    let currentRow = 0;
+    let currentColumn = 0;
+    let pixelCounter = 0;
+
+    let tile = 0;
+    let tilePixel;
+
+    for (; currentRow < height; currentRow += 1) {
+      for (; currentColumn < width; currentColumn += 1) {
+        tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
+        tilePixel = (currentRow % tileHeight) * tileWidth + (currentColumn % tileWidth);
+        // if (tile === 0) console.log(tile, tilePixel);
+        // console.log(tile, tilePixel);
+        tiles[tile][tilePixel] = [ pData[pixelCounter], pData[pixelCounter+1], pData[pixelCounter+2], pData[pixelCounter+3] ];
+        pixelCounter += 4;
+      }
+      currentColumn = 0;
+    }
+
+    return tiles;
   }
 
   // --- layer management ---
@@ -381,6 +435,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
       </div>
       <canvas id="temp-canvas" width="0" height="0" style="display: none;"></canvas>
+      <canvas id="temp-canvas-2" width="0" height="0" style="display: none;"></canvas>
     `;
   }
 });

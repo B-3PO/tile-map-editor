@@ -1,4 +1,5 @@
 const { Page, html } = require('@webformula/pax-core');
+const TilePaletteChecker = require('../global/TilePaletteChecker');
 
 module.exports = class Home extends Page {
   constructor() {
@@ -9,6 +10,7 @@ module.exports = class Home extends Page {
     this.tileX = 8;
     this.tileY = 8;
     this.scale = 4;
+    this.diableEntry = true;
   }
 
   connectedCallback() {
@@ -18,12 +20,15 @@ module.exports = class Home extends Page {
     this.canvas.color = this.paletteTool.selectedColor;
 
     this.bound_onCreate = this.onCreate.bind(this);
-    this.entryDialog.addEventListener('create', this.bound_onCreate);
+    if (!this.diableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
+
+    this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
+    this.checkCanvasPalettes();
   }
 
   disconnectedCallback() {
     this.paletteTool.removeEventListener('change', this.bound_paletteChange);
-    this.entryDialog.removeEventListener('create', this.bound_onCreate);
+    if (!this.diableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
   }
 
   get title() {
@@ -44,6 +49,10 @@ module.exports = class Home extends Page {
 
   paletteChange(e) {
     this.canvas.color = e.detail.selectedColor;
+  }
+
+  checkCanvasPalettes() {
+    return this.tilePaletteChecker.check();
   }
 
   onCreate(e) {
@@ -101,15 +110,32 @@ module.exports = class Home extends Page {
     image.src = window.URL.createObjectURL(file);
   }
 
+  toggleTileValidation() {
+    document.querySelector('#validate-tile-on').style.display = 'none';
+    document.querySelector('#validate-tile-off').style.display = 'none';
+    if (!this.tileValidationOn) {
+      this.tileValidationOn = true;
+      document.querySelector('#validate-tile-on').style.display = 'block';
+    } else {
+      this.tileValidationOn = false;
+      document.querySelector('#validate-tile-off').style.display = 'block';
+    }
+  }
+
   template() {
     return html`
-      <entry-dialog></entry-dialog>
+      ${!this.diableEntry ? '<entry-dialog></entry-dialog>' : ''}
 
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button">edit</div>
           <div class="icon-button">brush</div>
           <div class="icon-button">colorize</div>
+          <div class="icon-button">checkerboard</div>
+          <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
+            <img id="validate-tile-on" src="earth-box.svg" alt="validate-tile-on" style="display: none;">
+            <img id="validate-tile-off" src="earth-box-off.svg" alt="validate-tile-off">
+          </div>
           <div style="flex: 1;"></div>
           <label for="fileChooser" class="icon-button">image</label>
           <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
