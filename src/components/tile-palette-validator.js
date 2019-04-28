@@ -191,8 +191,8 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
       :host {
         display: block;
         background-color: #DDD;
-        border: 1px solid #AAA;
-        border-radius: 3px;
+        border-left: 1px solid #AAA;
+        border-right: 1px solid #AAA;
         padding: 4px;
         padding-right: 8px;
       }
@@ -218,6 +218,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
       .value {
         width: 40px;
+        padding-left: 4px;
       }
 
       .row {
