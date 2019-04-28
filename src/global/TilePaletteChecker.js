@@ -1,7 +1,7 @@
 module.exports = class TilePaletteChecker {
   constructor(canvas, palette) {
     this.canvas = canvas;
-    this.palette = palette;
+    this.paletteTool = palette;
   }
 
   get tileSize() {
@@ -16,15 +16,16 @@ module.exports = class TilePaletteChecker {
   }
 
   get palettes() {
-    return this.palette.palettes.map(p => this.convertRGBAArrToInt(p));
+    return this.paletteTool.palettes.map(p => this.convertRGBAArrToInt(p));
   }
 
   check() {
     const tileData = this.canvas.getTileData();
     const palettes = this.palettes;
     const paletteColorLength = palettes[0].length;
+    const invalidTiles = [];
 
-    return tileData.map((t, i) => {
+    const tiles = tileData.map((t, i) => {
       const tileColors = Object.keys(t).map(parseInt);
       const colorCount = tileColors.length;
       const paletteMatch = this.matchPalette(palettes, tileColors);
@@ -39,6 +40,7 @@ module.exports = class TilePaletteChecker {
         valid = false;
         reason = 'no palette match';
       }
+      if (!valid) invalidTiles.push(i);
 
       return {
         valid: valid,
@@ -48,6 +50,12 @@ module.exports = class TilePaletteChecker {
         colors: tileColors
       };
     });
+
+    return {
+      tiles,
+      invalidTiles,
+      valid: invalidTiles.length > 0
+    };
   }
 
   matchPalette(palettes, tileColors) {

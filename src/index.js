@@ -10,6 +10,7 @@ require('./components/draw-canvas.js');
 require('./components/scale-range.js');
 require('./components/grid-settings.js');
 require('./components/entry-dialog.js');
+require('./components/tile-palette-validator.js');
 
 global.loadFolder('src/global');
 

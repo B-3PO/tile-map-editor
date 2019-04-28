@@ -7,8 +7,6 @@ module.exports = class Home extends Page {
 
     this.canvasWidth = 160;
     this.canvasHeight = 144;
-    this.tileX = 8;
-    this.tileY = 8;
     this.scale = 4;
     this.diableEntry = true;
   }
@@ -18,11 +16,13 @@ module.exports = class Home extends Page {
     this.paletteTool.addEventListener('change', this.bound_paletteChange);
     this.centerCanvas();
     this.canvas.color = this.paletteTool.selectedColor;
-
+    this.canvas.tileWidth = 8;
+    this.canvas.tileHeight = 8;
     this.bound_onCreate = this.onCreate.bind(this);
     if (!this.diableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
 
-    this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
+    this.tilePaletteValidator.canvas = this.canvas;
+    this.tilePaletteValidator.paletteTool = this.paletteTool;
   }
 
   disconnectedCallback() {
@@ -46,12 +46,12 @@ module.exports = class Home extends Page {
     return document.querySelector('entry-dialog');
   }
 
-  paletteChange(e) {
-    this.canvas.color = e.detail.selectedColor;
+  get tilePaletteValidator() {
+    return document.querySelector('tile-palette-validator');
   }
 
-  checkCanvasPalettes() {
-    return this.tilePaletteChecker.check();
+  paletteChange(e) {
+    this.canvas.color = e.detail.selectedColor;
   }
 
   onCreate(e) {
@@ -61,8 +61,8 @@ module.exports = class Home extends Page {
     const gridSettings = document.querySelector('grid-settings');
     gridSettings.valueX = e.detail.tile.x;
     gridSettings.valueY = e.detail.tile.y;
-    this.tileX = e.detail.tile.x;
-    this.tileY = e.detail.tile.y;
+    this.canvas.tileWidth = e.detail.tile.x;
+    this.canvas.tileHeight = e.detail.tile.y;
 
     // set canvas size
     // TODO implament cancas size
@@ -109,18 +109,19 @@ module.exports = class Home extends Page {
     image.src = window.URL.createObjectURL(file);
   }
 
-  toggleTileValidation() {
-    document.querySelector('#validate-tile-on').style.display = 'none';
-    document.querySelector('#validate-tile-off').style.display = 'none';
-    if (!this.tileValidationOn) {
-      this.tileValidationOn = true;
-      document.querySelector('#validate-tile-on').style.display = 'block';
-      console.log(this.checkCanvasPalettes());
-    } else {
-      this.tileValidationOn = false;
-      document.querySelector('#validate-tile-off').style.display = 'block';
-    }
-  }
+  // toggleTileValidation() {
+  //   document.querySelector('#validate-tile-on').style.display = 'none';
+  //   document.querySelector('#validate-tile-off').style.display = 'none';
+  //   if (!this.tileValidationOn) {
+  //     this.tileValidationOn = true;
+  //     document.querySelector('#validate-tile-on').style.display = 'block';
+  //     this.tilePaletteValidator.check();
+  //     this.tilePaletteValidator.showCanvas();
+  //   } else {
+  //     this.tileValidationOn = false;
+  //     document.querySelector('#validate-tile-off').style.display = 'block';
+  //   }
+  // }
 
   template() {
     return html`
@@ -132,10 +133,10 @@ module.exports = class Home extends Page {
           <div class="icon-button">brush</div>
           <div class="icon-button">colorize</div>
           <div class="icon-button">checkerboard</div>
-          <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
+          <!-- <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
             <img id="validate-tile-on" src="earth-box.svg" alt="validate-tile-on" style="display: none;">
             <img id="validate-tile-off" src="earth-box-off.svg" alt="validate-tile-off">
-          </div>
+          </div> -->
           <div style="flex: 1;"></div>
           <label for="fileChooser" class="icon-button">image</label>
           <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
@@ -147,6 +148,7 @@ module.exports = class Home extends Page {
             <draw-canvas width="${this.canvasWidth}" height="${this.canvasHeight}" scale="4"></draw-canvas>
           </div>
           <div class="scale-container">
+            <tile-palette-validator></tile-palette-validator>
             <scale-range min="1" max="10" value="4" onchange="$Home.scaleCanvas(this.value)"></scale-range>
             <grid-settings onchange="$Home.updateGrid(this.show, this.valueX, this.valueY)"></grid-settings>
           </div>

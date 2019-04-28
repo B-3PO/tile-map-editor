@@ -32,7 +32,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.bound_mouseEnter = this.mouseEnter.bind(this);
     this.bound_onContextMenu = this.onContextMenu.bind(this);
 
-    this.addEvents();
+    // bind tile validation events
+    this.bound_tileValidationMouseEnter = this.tileValidationMouseEnter.bind(this);
+    this.bound_tileValidationMouseLeave = this.tileValidationMouseLeave.bind(this);
+    this.bound_tileValidationMouseMove = this.tileValidationMouseMove.bind(this);
+
+    this.addBackgroundEvents();
 
     ctx.fillStyle = 'white';
     ctx.scale(this.scale, this.scale);
@@ -41,7 +46,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.inited = true;
   }
 
-  addEvents() {
+  disconnectedCallback() {
+    this.removeBackgroundEvents();
+    this.removeTileValidationEvents();
+    this.cursor_ = undefined;
+  }
+
+  addBackgroundEvents() {
     const canvas_ = this.backgroundCanvas;
     canvas_.addEventListener('mousedown', this.bound_mouseDown);
     canvas_.addEventListener('mouseup', this.bound_mouseUp);
@@ -51,7 +62,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     canvas_.addEventListener('contextmenu', this.bound_onContextMenu);
   }
 
-  disconnectedCallback() {
+  removeBackgroundEvents() {
     const canvas_ = this.backgroundCanvas;
     canvas_.removeEventListener('mousedown', this.bound_mouseDown);
     canvas_.removeEventListener('mouseup', this.bound_mouseUp);
@@ -59,7 +70,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     canvas_.removeEventListener('mousemove', this.bound_mouseMove);
     canvas_.removeEventListener('mouseenter', this.bound_mouseEnter);
     canvas_.removeEventListener('contextmenu', this.bound_onContextMenu);
-    this.cursor_ = undefined;
   }
 
   static get observedAttributes() {
@@ -85,8 +95,8 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   set color(value) {
     if (!value) return;
-    this.cursor.style.backgroundColor = this.convertToRGBA(value);
     this.color_ = value;
+    this.drawMainCursor();
   }
 
   get backgroundCanvas() {
@@ -97,12 +107,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return this.backgroundCanvas.getContext('2d');
   }
 
-  get gridCanvas() {
-    return this.shadowRoot.querySelector('#grid-canvas');
+  get gridContext() {
+    return this.shadowRoot.querySelector('#grid-canvas').getContext('2d');
   }
 
-  get gridContext() {
-    return this.gridCanvas.getContext('2d');
+  get tileValidationContext() {
+    return this.shadowRoot.querySelector('#tile-validation-canvas').getContext('2d');
   }
 
   get tempCanvas() {
@@ -121,10 +131,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return this.tempCanvas2.getContext('2d');
   }
 
-  get scale() {
-    return this.scale_;
-  }
-
   get width() {
     return this.canvasWidth;
   }
@@ -137,11 +143,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     // redraw elements
     this.render();
     // add back evnets
-    this.addEvents();
+    if (!this.showTileValidation_) this.addBackgroundEvents();
+    else this.addTileValidationEvents();
     // redraw canvas
     this.redrawCanvas();
     // optional draw grid
     if (this.showGrid_) this.drawGrid();
+    if (this.showTileValidation_) this.showTileValidation();
   }
 
   get height() {
@@ -156,11 +164,17 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     // redraw elements
     this.render();
     // add back evnets
-    this.addEvents();
+    if (!this.showTileValidation_) this.addBackgroundEvents();
+    else this.addTileValidationEvents();
     // redraw canvas
     this.redrawCanvas();
     // optional draw grid
     if (this.showGrid_) this.drawGrid();
+    if (this.showTileValidation_) this.showTileValidation();
+  }
+
+  get scale() {
+    return this.scale_;
   }
 
   set scale(value) {
@@ -178,17 +192,16 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       // redraw elements
       this.render();
       // add back evnets
-      this.addEvents();
+      if (!this.showTileValidation_) this.addBackgroundEvents();
+      else this.addTileValidationEvents();
       // redraw canvas
       this.redrawCanvas();
       // optional draw grid
       if (this.showGrid_) this.drawGrid();
+      if (this.showTileValidation_) this.showTileValidation();
     }
 
-    // update cursor
-    this.cursor.style.width = `${value}px`;
-    this.cursor.style.height = `${value}px`;
-    this.cursor.style.backgroundColor = this.color;
+    this.drawMainCursor();
   }
 
   get cursor() {
@@ -205,6 +218,23 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     if (this.showGrid) this.drawGrid();
   }
 
+  get tileWidth() {
+    return this.tileWidth_;
+  }
+
+  set tileWidth(value) {
+    this.tileWidth_ = parseInt(value);
+  }
+
+  get tileHeight() {
+    return this.tileHeight_;
+  }
+
+  set tileHeight(value) {
+    this.tileHeight_ = parseInt(value);
+  }
+
+  // --- bockground canvas events ---
   mouseDown(e) {
     // block right click
     if (e.which !== 1) return;
@@ -221,13 +251,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   mouseLeave(e) {
+    this.clearCursor();
     this.isMouseDown = false;
-    this.cursor.classList.add('hide');
   }
 
   mouseEnter(e) {
+    this.drawMainCursor();
     this.isMouseDown = false;
-    this.cursor.classList.remove('hide');
   }
 
   onContextMenu(e) {
@@ -238,9 +268,38 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const bounds = this.getBoundingClientRect();
     if (this.isMouseDown) this.fillPixel(e.clientX, e.clientY);
     let [x, y] = this.snapToPixel(e.clientX - bounds.left, e.clientY - bounds.top);
+    this.moveCursor(x, y);
+  }
+
+
+
+  // --- cursors ---
+
+  moveCursor(x, y) {
     this.cursor.style.left = `${x}px`;
     this.cursor.style.top = `${y}px`;
   }
+
+  drawMainCursor() {
+    this.cursor.style.width = `${this.scale}px`;
+    this.cursor.style.height = `${this.scale}px`;
+    this.cursor.style.backgroundColor = this.color;
+    this.cursor.style.border = '1px solid #DDD';
+  }
+
+  drawTileValidationCursor() {
+    this.cursor.style.width = `${this.tileWidth * this.scale}px`;
+    this.cursor.style.height = `${this.tileWidth * this.scale}px`;
+    this.cursor.style.backgroundColor = 'rgba(255, 50, 50, 0.1)';
+    this.cursor.style.border = 'none';
+  }
+
+  clearCursor() {
+    this.cursor.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+    this.cursor.style.border = 'none';
+  }
+
+
 
   drawImage(image, x, y) {
     this.backgroundContext.imageSmoothingEnabled = false;
@@ -379,14 +438,96 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return tiles;
   }
 
-  // --- layer management ---
-  addLayer() {
 
+
+  // --- tile validation ---
+
+  get tileValidation() {
+    return this.tileValidation_;
   }
 
-  deleteLayer() {
-
+  set tileValidation(value) {
+    this.tileValidation_ = value;
+    if (value && this.showTileValidation_ === true) this.showTileValidation();
   }
+
+  showTileValidation() {
+    if (this.tileValidation) {
+      this.showTileValidation_ = true;
+      this.drawTileValidation();
+      this.removeBackgroundEvents();
+      this.addTileValidationEvents();
+      this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = '';
+    } else {
+      console.warn('cannot show validation because "tileValidation" data was not set');
+    }
+  }
+
+  hideTileValidation() {
+    this.showTileValidation_ = false;
+    const ctx = this.tileValidationContext;
+    ctx.canvas.width = ctx.canvas.width;
+    this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = 'none';
+    this.drawMainCursor();
+    this.addBackgroundEvents();
+  }
+
+  drawTileValidation() {
+    const tileWidth = this.tileWidth * this.scale;
+    const tileHeight = this.tileHeight * this.scale;
+    const tileRowCount = this.canvasWidth / this.tileWidth;
+    const ctx = this.tileValidationContext;
+    ctx.canvas.width = ctx.canvas.width;
+
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(238,51,51,0.8)';
+    this.tileValidation.tiles.forEach(t => {
+      if (!t.valid) {
+        const y = Math.floor(t.tileId / tileRowCount) * tileHeight;
+        const x = (t.tileId % tileRowCount) * tileWidth;
+        ctx.strokeRect(x, y, tileWidth, tileHeight);
+      }
+    });
+  }
+
+  addTileValidationEvents() {
+    const canvas_ = this.shadowRoot.querySelector('#tile-validation-canvas');
+    canvas_.addEventListener('mouseleave', this.bound_tileValidationMouseLeave);
+    canvas_.addEventListener('mousemove', this.bound_tileValidationMouseMove);
+    canvas_.addEventListener('mouseenter', this.bound_tileValidationMouseEnter);
+  }
+
+  removeTileValidationEvents() {
+    const canvas_ = this.shadowRoot.querySelector('#tile-validation-canvas');
+    canvas_.removeEventListener('mouseleave', this.bound_tileValidationMouseLeave);
+    canvas_.removeEventListener('mousemove', this.bound_tileValidationMouseMove);
+    canvas_.removeEventListener('mouseenter', this.bound_tileValidationMouseEnter);
+  }
+
+  tileValidationMouseEnter(e) {
+    this.drawTileValidationCursor();
+    this.isOnTileValidationCanvas = true;
+  }
+
+  tileValidationMouseLeave(e) {
+    this.clearCursor();
+    this.isOnTileValidationCanvas = false;
+  }
+
+  tileValidationMouseMove(e) {
+    const bounds = this.getBoundingClientRect();
+    const [x, y] = this.snapToTile(e.clientX - bounds.left, e.clientY - bounds.top);
+    this.moveCursor(x, y);
+  }
+
+  snapToTile(x, y) {
+    x -= x % (this.tileWidth * this.scale);
+    if (x < 0) x = 0;
+    y -= y % (this.tileHeight * this.scale);
+    if (y < 0) y = 0;
+    return [x, y];
+  }
+
 
   styles() {
     return css`
@@ -415,6 +556,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         display: none;
       }
 
+      #tile-validation-canvas {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        user-select: none;
+      }
+
       #grid-canvas {
         position: absolute;
         left: 0.5px;
@@ -437,6 +585,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         <div class="cursor"></div>
         <canvas id="backround-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
         <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
+        <canvas id="tile-validation-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}" style="${this.showTileValidation_ ? '' : 'pointer-events: none;'}"></canvas>
       </div>
       <canvas id="temp-canvas" width="0" height="0"></canvas>
       <canvas id="temp-canvas-2" width="0" height="0"></canvas>
