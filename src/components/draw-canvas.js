@@ -4,6 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
+const TilePaletteChecker = require('../global/TilePaletteChecker');
 
 // TODO add tools: (pencil, brush, blur, spray, erase)
 // TODO add cursors based on tools
@@ -15,12 +16,14 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.canvasWidth = this.hasAttribute('width') ? parseInt(this.getAttribute('width')) : 160;
     this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
     this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
-    this.color_ = [0,0,0,255];
+    this.color_ = [0,0,0,1];
 
     this.cloneTemplate();
   }
 
   connectedCallback() {
+    this.RGBAtoInt = new TilePaletteChecker().RGBAtoInt;
+
     const ctx = this.backgroundContext;
     this.bound_mouseDown = this.mouseDown.bind(this);
     this.bound_mouseUp = this.mouseUp.bind(this);
@@ -302,6 +305,9 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.tempContext.putImageData(this.canvasData, 0, 0);
 
     // use draw image, this has an option for streatching
+    const tempCanvas2 = this.tempCanvas2;
+    tempCanvas2.width = this.canvasWidth;
+    tempCanvas2.height = this.canvasHeight;
     const ctx = this.tempContext2;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(tempCanvas, 0, 0, this.canvasData.width, this.canvasData.height, 0, 0, this.canvasWidth, this.canvasHeight);
@@ -353,8 +359,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const tileWidth = this.gridSize.x;
     const tileHeight = this.gridSize.y;
     const tileRowCount = width / tileWidth;
-    const tiles = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => []);
-
+    const tiles = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ({}));
     let currentRow = 0;
     let currentColumn = 0;
     let pixelCounter = 0;
@@ -365,10 +370,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     for (; currentRow < height; currentRow += 1) {
       for (; currentColumn < width; currentColumn += 1) {
         tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
-        tilePixel = (currentRow % tileHeight) * tileWidth + (currentColumn % tileWidth);
-        // if (tile === 0) console.log(tile, tilePixel);
-        // console.log(tile, tilePixel);
-        tiles[tile][tilePixel] = [ pData[pixelCounter], pData[pixelCounter+1], pData[pixelCounter+2], pData[pixelCounter+3] ];
+        tiles[tile][this.RGBAtoInt([ pData[pixelCounter], pData[pixelCounter+1], pData[pixelCounter+2], pData[pixelCounter+3] / 255 ])] = true;
         pixelCounter += 4;
       }
       currentColumn = 0;
@@ -421,8 +423,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         user-select: none;
       }
 
-      #temp-canvas {
+      #temp-canvas,
+      #temp-canvas-2 {
         position: absolute;
+        display: none;
       }
     `;
   }
@@ -434,8 +438,8 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         <canvas id="backround-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
         <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
       </div>
-      <canvas id="temp-canvas" width="0" height="0" style="display: none;"></canvas>
-      <canvas id="temp-canvas-2" width="0" height="0" style="display: none;"></canvas>
+      <canvas id="temp-canvas" width="0" height="0"></canvas>
+      <canvas id="temp-canvas-2" width="0" height="0"></canvas>
     `;
   }
 });

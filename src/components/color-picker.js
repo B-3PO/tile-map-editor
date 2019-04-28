@@ -146,7 +146,10 @@ customElements.define('color-picker', class extends HTMLElementExtended {
   }
 
   setPickerColor() {
-    this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(this.pickerX - this.colorStripWidth, this.pickerY, 1, 1).data].slice(0, 3).join(',')},1)`;
+    const x = this.pickerX - this.colorStripWidth;
+    const y = this.pickerY;
+    this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(x, y, 1, 1).data].slice(0, 3).join(',')},1)`;
+    if (x === 0 && y === 0) this.pickerColor = 'rgba(255,255,255,0)';
     this.picker.style.backgroundColor = this.pickerColor;
     this.setRGBInputs();
     this.handleChange();
@@ -168,7 +171,6 @@ customElements.define('color-picker', class extends HTMLElementExtended {
 
     // offset picker
     if (x < this.colorStripWidth + 5) x = this.colorStripWidth + 5;
-
     // set picker position
     this.picker.style.left = `${x}px`;
     this.picker.style.top = `${y}px`;

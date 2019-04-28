@@ -23,7 +23,6 @@ module.exports = class Home extends Page {
     if (!this.diableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
 
     this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
-    this.checkCanvasPalettes();
   }
 
   disconnectedCallback() {
@@ -116,6 +115,7 @@ module.exports = class Home extends Page {
     if (!this.tileValidationOn) {
       this.tileValidationOn = true;
       document.querySelector('#validate-tile-on').style.display = 'block';
+      console.log(this.checkCanvasPalettes());
     } else {
       this.tileValidationOn = false;
       document.querySelector('#validate-tile-off').style.display = 'block';

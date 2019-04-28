@@ -227,11 +227,68 @@
         }
       
         get palettes() {
-          return this.palette.palettes;
+          return this.palette.palettes.map(p => this.convertRGBAArrToInt(p));
         }
       
         check() {
-          console.log(this.canvas.getTileData());
+          const tileData = this.canvas.getTileData();
+          const palettes = this.palettes;
+          const paletteColorLength = palettes[0].length;
+      
+          return tileData.map((t, i) => {
+            const tileColors = Object.keys(t).map(parseInt);
+            const colorCount = tileColors.length;
+            const paletteMatch = this.matchPalette(palettes, tileColors);
+            let valid = true;
+            let reason;
+      
+            if (colorCount > paletteColorLength) {
+              valid = false;
+              reason = `More than ${paletteColorLength} colors. Found ${colorCount} in tile`;
+            }
+            if (paletteMatch === undefined) {
+              valid = false;
+              reason = 'no palette match';
+            }
+      
+            return {
+              valid: valid,
+              tileId: i,
+              reson: reason,
+              palette: paletteMatch,
+              colors: tileColors
+            };
+          });
+        }
+      
+        matchPalette(palettes, tileColors) {
+          let tileColorLength = tileColors.length;
+          let palleteLength = palettes.length;
+          let i = 0;
+          let j;
+          let match = true;
+      
+          for (; i < palleteLength; i += 1) {
+            for (j = 0; j < tileColorLength; j += 1) {
+              if (!palettes[i].includes(tileColors[j])) match = false;
+            }
+      
+            if (match === true) return i;
+          }
+      
+          return undefined;
+        }
+      
+        convertRGBAArrToInt(arr) {
+          return arr.map(this.RGBAtoInt);
+        }
+      
+        RGBAtoInt(arr) {
+          return ((Math.round(arr[3] * 255) << 24) >>> 0 | arr[0] << 16 | arr[1] << 8 | arr[2]) >>> 0;
+        }
+      
+        intToRGBA(num) {
+          return `rgba(${num >> 24 & 255},${num >> 16 & 255},${num >> 8  & 255},${(num & 255) / 255})`;
         }
       }
     
@@ -479,7 +536,10 @@
         }
       
         setPickerColor() {
-          this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(this.pickerX - this.colorStripWidth, this.pickerY, 1, 1).data].slice(0, 3).join(',')},1)`;
+          const x = this.pickerX - this.colorStripWidth;
+          const y = this.pickerY;
+          this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(x, y, 1, 1).data].slice(0, 3).join(',')},1)`;
+          if (x === 0 && y === 0) this.pickerColor = 'rgba(255,255,255,0)';
           this.picker.style.backgroundColor = this.pickerColor;
           this.setRGBInputs();
           this.handleChange();
@@ -501,7 +561,6 @@
       
           // offset picker
           if (x < this.colorStripWidth + 5) x = this.colorStripWidth + 5;
-      
           // set picker position
           this.picker.style.left = `${x}px`;
           this.picker.style.top = `${y}px`;
@@ -1145,8 +1204,10 @@
         user-select: none;
       }
       
-      #temp-canvas {
+      #temp-canvas,
+      #temp-canvas-2 {
         position: absolute;
+        display: none;
       }
           </style>
           <render-block>
@@ -1155,8 +1216,8 @@
         <canvas id="backround-canvas" width="640" height="576"></canvas>
         <canvas id="grid-canvas" width="640" height="576"></canvas>
       </div>
-      <canvas id="temp-canvas" width="0" height="0" style="display: none;"></canvas>
-      <canvas id="temp-canvas-2" width="0" height="0" style="display: none;"></canvas>
+      <canvas id="temp-canvas" width="0" height="0"></canvas>
+      <canvas id="temp-canvas-2" width="0" height="0"></canvas>
           </render-block>
           `;
           document.body.insertAdjacentElement('beforeend', t);
@@ -1173,13 +1234,15 @@
           this.canvasWidth = this.hasAttribute('width') ? parseInt(this.getAttribute('width')) : 160;
           this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
           this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
-          this.color_ = [0,0,0,255];
+          this.color_ = [0,0,0,1];
       
           this.cloneTemplate();
         }
           
       
         connectedCallback() {
+          this.RGBAtoInt = new TilePaletteChecker().RGBAtoInt;
+      
           const ctx = this.backgroundContext;
           this.bound_mouseDown = this.mouseDown.bind(this);
           this.bound_mouseUp = this.mouseUp.bind(this);
@@ -1461,6 +1524,9 @@
           this.tempContext.putImageData(this.canvasData, 0, 0);
       
           // use draw image, this has an option for streatching
+          const tempCanvas2 = this.tempCanvas2;
+          tempCanvas2.width = this.canvasWidth;
+          tempCanvas2.height = this.canvasHeight;
           const ctx = this.tempContext2;
           ctx.imageSmoothingEnabled = false;
           ctx.drawImage(tempCanvas, 0, 0, this.canvasData.width, this.canvasData.height, 0, 0, this.canvasWidth, this.canvasHeight);
@@ -1512,8 +1578,7 @@
           const tileWidth = this.gridSize.x;
           const tileHeight = this.gridSize.y;
           const tileRowCount = width / tileWidth;
-          const tiles = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => []);
-      
+          const tiles = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ({}));
           let currentRow = 0;
           let currentColumn = 0;
           let pixelCounter = 0;
@@ -1524,10 +1589,7 @@
           for (; currentRow < height; currentRow += 1) {
             for (; currentColumn < width; currentColumn += 1) {
               tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
-              tilePixel = (currentRow % tileHeight) * tileWidth + (currentColumn % tileWidth);
-              // if (tile === 0) console.log(tile, tilePixel);
-              // console.log(tile, tilePixel);
-              tiles[tile][tilePixel] = [ pData[pixelCounter], pData[pixelCounter+1], pData[pixelCounter+2], pData[pixelCounter+3] ];
+              tiles[tile][this.RGBAtoInt([ pData[pixelCounter], pData[pixelCounter+1], pData[pixelCounter+2], pData[pixelCounter+3] / 255 ])] = true;
               pixelCounter += 4;
             }
             currentColumn = 0;
@@ -1580,8 +1642,10 @@
               user-select: none;
             }
       
-            #temp-canvas {
+            #temp-canvas,
+            #temp-canvas-2 {
               position: absolute;
+              display: none;
             }
           `;
         }
@@ -1593,8 +1657,8 @@
               <canvas id="backround-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
               <canvas id="grid-canvas" width="${this.canvasWidth * this.scale}" height="${this.canvasHeight * this.scale}"></canvas>
             </div>
-            <canvas id="temp-canvas" width="0" height="0" style="display: none;"></canvas>
-            <canvas id="temp-canvas-2" width="0" height="0" style="display: none;"></canvas>
+            <canvas id="temp-canvas" width="0" height="0"></canvas>
+            <canvas id="temp-canvas-2" width="0" height="0"></canvas>
           `;
         }
       
@@ -2474,7 +2538,6 @@
           if (!this.diableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
       
           this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
-          this.checkCanvasPalettes();
         }
       
         disconnectedCallback() {
@@ -2567,6 +2630,7 @@
           if (!this.tileValidationOn) {
             this.tileValidationOn = true;
             document.querySelector('#validate-tile-on').style.display = 'block';
+            console.log(this.checkCanvasPalettes());
           } else {
             this.tileValidationOn = false;
             document.querySelector('#validate-tile-off').style.display = 'block';
