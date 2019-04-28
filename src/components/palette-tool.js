@@ -4,6 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
+const Utils = require('../global/utils');
 
 customElements.define('palette-tool', class extends HTMLElementExtended {
   constructor() {
@@ -13,6 +14,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   connectedCallback() {
+    this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
     this.bound_clickColor = this.clickColor.bind(this);
     this.bound_onColorChange = this.onColorChange.bind(this);
     this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
@@ -129,19 +131,19 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   clickColor(e) {
     this.selectPalette(e);
     if (!e.target.classList.contains('color')) {
-      this.handleChange();
+      this.dispatchChange();
       return;
     }
 
     if (this.selected) this.selected.classList.remove('selected');
     this.selected = e.target;
     this.selected.classList.add('selected');
-    this.handleChange();
+    this.dispatchChange();
   }
 
   onColorChange(e) {
     if (this.isEdit()) this.updateSelected(e.detail.color);
-    this.handleChange();
+    this.dispatchChange();
   }
 
   selectPalette(e) {
@@ -156,14 +158,26 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     const location = this.selectedLocation;
     this.palettes[location[0]][location[1]] = color;
     this.selected.style.backgroundColor = this.convertArrToRBGA(color);
+    this.debounced_dispatchPaletteChange();
   }
 
   convertArrToRBGA(arr) {
     return `rgba(${arr.join(',')})`;
   }
 
-  handleChange() {
+  dispatchChange() {
     this.dispatchEvent(new CustomEvent('change', {
+      detail: {
+        selectedPalette: this.selectedPalette,
+        selectedColor: this.selectedColor,
+        pickerColor: this.colorPicker.color,
+        palettes: this.palettes
+      }
+    }));
+  }
+
+  dispatchPaletteChange() {
+    this.dispatchEvent(new CustomEvent('paletteChange', {
       detail: {
         selectedPalette: this.selectedPalette,
         selectedColor: this.selectedColor,

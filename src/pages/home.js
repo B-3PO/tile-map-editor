@@ -132,7 +132,7 @@ module.exports = class Home extends Page {
           <div class="icon-button">edit</div>
           <div class="icon-button">brush</div>
           <div class="icon-button">colorize</div>
-          <div class="icon-button">checkerboard</div>
+          <div class="icon-button">check</div>
           <!-- <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
             <img id="validate-tile-on" src="earth-box.svg" alt="validate-tile-on" style="display: none;">
             <img id="validate-tile-off" src="earth-box-off.svg" alt="validate-tile-off">

@@ -201,11 +201,15 @@
         connectedCallback() {}
         template() { return ''; }
         styles() { return ''; }
+        beforeRender() {}
         render() {
+          if (this.beforeRender) this.beforeRender();
           const renderBlock = document.querySelector('render-block-page');
           if (!renderBlock) throw Error('Could not find <render-block-page>');
           renderBlock.innerHTML = `<style>${this.styles()}</style>${this.template()}`;
+          if (this.afterRender) this.afterRender();
         }
+        afterRender() {}
       }
     
       
@@ -231,12 +235,12 @@
         }
       
         check() {
-          const tileData = this.canvas.getTileData();
+          const { tileColors, rawTileData } = this.canvas.getTileData();
           const palettes = this.palettes;
           const paletteColorLength = palettes[0].length;
           const invalidTiles = [];
       
-          const tiles = tileData.map((t, i) => {
+          const tileValidationData = tileColors.map((t, i) => {
             const tileColors = Object.keys(t).map(parseInt);
             const colorCount = tileColors.length;
             const paletteMatch = this.matchPalette(palettes, tileColors);
@@ -254,16 +258,17 @@
             if (!valid) invalidTiles.push(i);
       
             return {
-              valid: valid,
+              valid,
               tileId: i,
-              reson: reason,
+              reason,
               palette: paletteMatch,
               colors: tileColors
             };
           });
       
           return {
-            tiles,
+            rawTileData,
+            tileValidationData,
             invalidTiles,
             valid: invalidTiles.length > 0
           };
@@ -297,6 +302,51 @@
       
         intToRGBA(num) {
           return `rgba(${num >> 24 & 255},${num >> 16 & 255},${num >> 8  & 255},${(num & 255) / 255})`;
+        }
+      }
+      window.Utils = class Utils {
+        static debounce(fn, wait) {
+          let timer;
+          return function debounced() {
+            const args = arguments;
+            const context = this
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+              timer = undefined;
+              fn.apply(context, args);
+            }, wait || 10);
+          };
+        }
+      
+        static throttle(fn, limit) {
+          let alreadyQueued;
+          return function throttled() {
+            const args = arguments;
+            const context = this;
+            if (!alreadyQueued) {
+              alreadyQueued = true;
+              fn.apply(context, args);
+              setTimeout(() => {
+                alreadyQueued = false;
+              }, limit);
+            }
+          };
+        }
+      
+        // throttle on request animation frameyy
+        static rafThrottle(fn) {
+          let alreadyQueued;
+          return function throttled() {
+            const args = arguments;
+            const context = this;
+            if (!alreadyQueued) {
+              alreadyQueued = true;
+              fn.apply(context, args);
+              requestAnimationFrame(() => {
+                alreadyQueued = false;
+              });
+            }
+          };
         }
       }
     
@@ -768,9 +818,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -900,6 +952,7 @@
           
       
         connectedCallback() {
+          this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
           this.bound_clickColor = this.clickColor.bind(this);
           this.bound_onColorChange = this.onColorChange.bind(this);
           this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
@@ -1016,19 +1069,19 @@
         clickColor(e) {
           this.selectPalette(e);
           if (!e.target.classList.contains('color')) {
-            this.handleChange();
+            this.dispatchChange();
             return;
           }
       
           if (this.selected) this.selected.classList.remove('selected');
           this.selected = e.target;
           this.selected.classList.add('selected');
-          this.handleChange();
+          this.dispatchChange();
         }
       
         onColorChange(e) {
           if (this.isEdit()) this.updateSelected(e.detail.color);
-          this.handleChange();
+          this.dispatchChange();
         }
       
         selectPalette(e) {
@@ -1043,14 +1096,26 @@
           const location = this.selectedLocation;
           this.palettes[location[0]][location[1]] = color;
           this.selected.style.backgroundColor = this.convertArrToRBGA(color);
+          this.debounced_dispatchPaletteChange();
         }
       
         convertArrToRBGA(arr) {
           return `rgba(${arr.join(',')})`;
         }
       
-        handleChange() {
+        dispatchChange() {
           this.dispatchEvent(new CustomEvent('change', {
+            detail: {
+              selectedPalette: this.selectedPalette,
+              selectedColor: this.selectedColor,
+              pickerColor: this.colorPicker.color,
+              palettes: this.palettes
+            }
+          }));
+        }
+      
+        dispatchPaletteChange() {
+          this.dispatchEvent(new CustomEvent('paletteChange', {
             detail: {
               selectedPalette: this.selectedPalette,
               selectedColor: this.selectedColor,
@@ -1158,9 +1223,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -1250,7 +1317,7 @@
           this.canvasWidth = this.hasAttribute('width') ? parseInt(this.getAttribute('width')) : 160;
           this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
           this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
-          this.color_ = [0,0,0,1];
+          this.color_ = [0, 0, 0, 1];
       
           this.cloneTemplate();
         }
@@ -1271,6 +1338,7 @@
           this.bound_tileValidationMouseEnter = this.tileValidationMouseEnter.bind(this);
           this.bound_tileValidationMouseLeave = this.tileValidationMouseLeave.bind(this);
           this.bound_tileValidationMouseMove = this.tileValidationMouseMove.bind(this);
+          this.bound_tileValidationClick = this.tileValidationClick.bind(this);
       
           this.addBackgroundEvents();
       
@@ -1445,11 +1513,11 @@
         }
       
         get gridSize() {
-          return this.gridSize_ || {x: 8, y: 8};
+          return this.gridSize_ || { x: 8, y: 8 };
         }
       
-        set gridSize({x, y}) {
-          this.gridSize_ = {x, y};
+        set gridSize({ x, y }) {
+          this.gridSize_ = { x, y };
           if (this.showGrid_) this.drawGrid();
         }
       
@@ -1482,12 +1550,18 @@
           // block right click
           if (e.which !== 1) return;
       
+          if (this.isMouseDown) this.dispatchPaint();
           this.isMouseDown = false;
         }
       
         mouseLeave(e) {
           this.clearCursor();
+          if (this.isMouseDown) this.dispatchPaint();
           this.isMouseDown = false;
+        }
+      
+        dispatchPaint() {
+          this.dispatchEvent(new CustomEvent('paint'));
         }
       
         mouseEnter(e) {
@@ -1525,8 +1599,16 @@
         drawTileValidationCursor() {
           this.cursor.style.width = `${this.tileWidth * this.scale}px`;
           this.cursor.style.height = `${this.tileWidth * this.scale}px`;
-          this.cursor.style.backgroundColor = 'rgba(255, 50, 50, 0.1)';
           this.cursor.style.border = 'none';
+          this.redValidationCursor();
+        }
+      
+        greenValidationCursor() {
+          this.cursor.style.backgroundColor = 'rgba(117, 217, 133, 0.4)';
+        }
+      
+        redValidationCursor() {
+          this.cursor.style.backgroundColor = 'rgba(255, 50, 50, 0.1)';
         }
       
         clearCursor() {
@@ -1609,7 +1691,8 @@
           return ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         }
       
-        showGrid() {;
+        showGrid() {
+          ;
           this.showGrid_ = true;
           this.drawGrid();
         }
@@ -1653,24 +1736,30 @@
           const tileWidth = this.gridSize.x;
           const tileHeight = this.gridSize.y;
           const tileRowCount = width / tileWidth;
-          const tiles = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ({}));
+          const tileColors = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ({}));
+          const rawTileData = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ([]));
           let currentRow = 0;
           let currentColumn = 0;
           let pixelCounter = 0;
       
           let tile = 0;
-          let tilePixel;
+          let rawColor;
       
           for (; currentRow < height; currentRow += 1) {
             for (; currentColumn < width; currentColumn += 1) {
               tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
-              tiles[tile][this.RGBAtoInt([ pData[pixelCounter], pData[pixelCounter+1], pData[pixelCounter+2], pData[pixelCounter+3] / 255 ])] = true;
+              rawColor = [pData[pixelCounter], pData[pixelCounter + 1], pData[pixelCounter + 2], pData[pixelCounter + 3] / 255];
+              tileColors[tile][this.RGBAtoInt(rawColor)] = true;
+              rawTileData[tile].push(rawColor);
               pixelCounter += 4;
             }
             currentColumn = 0;
           }
       
-          return tiles;
+          return {
+            tileColors,
+            rawTileData
+          };
         }
       
       
@@ -1690,15 +1779,14 @@
           if (this.tileValidation) {
             this.showTileValidation_ = true;
             this.drawTileValidation();
-            this.removeBackgroundEvents();
-            this.addTileValidationEvents();
-            this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = '';
+            this.enableTileValidationEvents();
           } else {
             console.warn('cannot show validation because "tileValidation" data was not set');
           }
         }
       
         hideTileValidation() {
+          console.log('hideTileValidation');
           this.showTileValidation_ = false;
           const ctx = this.tileValidationContext;
           ctx.canvas.width = ctx.canvas.width;
@@ -1716,7 +1804,7 @@
       
           ctx.lineWidth = 0.5;
           ctx.strokeStyle = 'rgba(238,51,51,0.8)';
-          this.tileValidation.tiles.forEach(t => {
+          this.tileValidation.tileValidationData.forEach(t => {
             if (!t.valid) {
               const y = Math.floor(t.tileId / tileRowCount) * tileHeight;
               const x = (t.tileId % tileRowCount) * tileWidth;
@@ -1730,6 +1818,7 @@
           canvas_.addEventListener('mouseleave', this.bound_tileValidationMouseLeave);
           canvas_.addEventListener('mousemove', this.bound_tileValidationMouseMove);
           canvas_.addEventListener('mouseenter', this.bound_tileValidationMouseEnter);
+          canvas_.addEventListener('click', this.bound_tileValidationClick);
         }
       
         removeTileValidationEvents() {
@@ -1737,6 +1826,7 @@
           canvas_.removeEventListener('mouseleave', this.bound_tileValidationMouseLeave);
           canvas_.removeEventListener('mousemove', this.bound_tileValidationMouseMove);
           canvas_.removeEventListener('mouseenter', this.bound_tileValidationMouseEnter);
+          canvas_.removeEventListener('click', this.bound_tileValidationClick);
         }
       
         tileValidationMouseEnter(e) {
@@ -1752,7 +1842,29 @@
         tileValidationMouseMove(e) {
           const bounds = this.getBoundingClientRect();
           const [x, y] = this.snapToTile(e.clientX - bounds.left, e.clientY - bounds.top);
+          const tileWidth = this.tileWidth * this.scale;
+          // check tile validity and updat cursor color
+          const isTileValid = this.tileValidation.tileValidationData[(y / tileWidth) * (this.canvasWidth / this.tileWidth) + (x / tileWidth)].valid;
+          if (isTileValid) this.greenValidationCursor();
+          else this.redValidationCursor();
+      
           this.moveCursor(x, y);
+        }
+      
+        tileValidationClick(e) {
+          const bounds = this.getBoundingClientRect();
+          const tileWidth = this.tileWidth * this.scale;
+          const tileHeight = this.tileHeight * this.scale;
+          const tileRowCount = this.canvasWidth / this.tileWidth;
+          let [x, y] = this.snapToTile(e.clientX - bounds.left, e.clientY - bounds.top);
+          x /= tileWidth;
+          y /= tileHeight;
+          y *= tileRowCount;
+          this.dispatchEvent(new CustomEvent('tileSelect', {
+            detail: {
+              selectedTile: x + y
+            }
+          }));
         }
       
         snapToTile(x, y) {
@@ -1761,6 +1873,29 @@
           y -= y % (this.tileHeight * this.scale);
           if (y < 0) y = 0;
           return [x, y];
+        }
+      
+      
+        // --- events enablers ---
+      
+        enableDrawEvents() {
+          this.disableTileValidationEvents();
+          this.addBackgroundEvents();
+        }
+      
+        disableDrawEvents() {
+          this.removeBackgroundEvents();
+        }
+      
+        enableTileValidationEvents() {
+          this.disableDrawEvents();
+          this.addTileValidationEvents();
+          this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = '';
+        }
+      
+        disableTileValidationEvents() {
+          this.removeTileValidationEvents();
+          this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = 'none';
         }
       
       
@@ -1833,9 +1968,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -2018,9 +2155,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -2216,9 +2355,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -2663,9 +2804,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -2693,6 +2836,12 @@
         padding-right: 8px;
       }
       
+      .sub-header {
+        font-size: 16px;
+        color: #777;
+        margin-bottom: 4px;
+      }
+      
       label {
         color: #666;
         font-size: 14px;
@@ -2705,15 +2854,60 @@
         font-weight: bold;
         color: #777;
       }
+      
+      .value {
+        width: 40px;
+      }
+      
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .column {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      section {
+        margin-top: 6px;
+        padding: 6px;
+      }
+      
+      .reason {
+        font-size: 12px;
+        color: #777;
+        margin-top: -8px;
+        margin-left: 1px;
+        margin-bottom: 12px;
+      }
+      
+      .reason.warn {
+        color: #ff3a3a;
+      }
+      
+      .reason.success {
+        color: #8aff39;
+      }
           </style>
           <render-block>
-            <div>
-        <input type="checkbox" >
-        <label>Tile validation mode</label>
+            <div class="row">
+        <input id="validation-mode-checkbox" type="checkbox" >
+        <label style="padding-right: 8px;">Tile validation mode</label>
+        <input id="enable-draw" type="checkbox"  >
+        <label>Enable draw</label>
+      
+      
+        <span style="flex: 1"></span>
+        <span class="label">Invalid tiles: </span><span class="value"></span>
       </div>
-      <div>
-        <span class="label">Invalid tiles: </span><span></span>
-      </div>
+      
+      <section>
+        <div class="sub-header">Selected tile</div>
+        <div>
+          <div class="reason">No tile selected</div>
+        </div>
+      </section>
           </render-block>
           `;
           document.body.insertAdjacentElement('beforeend', t);
@@ -2726,18 +2920,61 @@
         
           constructor() {
           super();
+      
+          this.tileDisplayWidth = 80;
+          this.tileDisplayHeight = 80;
+          this.tileDrawScale = 10;
+      
           this.cloneTemplate();
         }
           
       
         connectedCallback() {
           this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
+          this.bound_onTileSelect = this.onTileSelect.bind(this);
           this.bound_onCheckboxChange = this.onCheckboxChange.bind(this);
-          this.checkbox.addEventListener('change', this.bound_onCheckboxChange);
+          this.bound_enableDrawClick = this.enableDrawClick.bind(this);
+          this.bound_onPaint = this.onPaint.bind(this);
+          this.bound_onPaletteChange = this.onPaletteChange.bind(this);
+          this.addEvents();
         }
       
         disconnectedCallback() {
-          this.checkbox.removeEventListener('change', this.bound_onCheckboxChange);
+          this.removeEvents();
+        }
+      
+        beforeRender() {
+          this.removeEvents();
+        }
+      
+        afterRender() {
+          this.addEvents();
+        }
+      
+        addEvents() {
+          this.validationModeCheckbox.addEventListener('change', this.bound_onCheckboxChange);
+          this.enableDrawCheckbox.addEventListener('change', this.bound_enableDrawClick);
+      
+          if (this.paletteTool) {
+            if (this.validationModeChecked_) this.paletteTool.addEventListener('paletteChange', this.bound_onPaletteChange);
+          }
+      
+          if (this.canvas_) {
+            this.canvas_.addEventListener('tileSelect', this.bound_onTileSelect);
+            if (this.drawEnabled) this.canvas_.addEventListener('paint', this.bound_onPaint);
+          }
+        }
+      
+        removeEvents() {
+          this.validationModeCheckbox.removeEventListener('change', this.bound_onCheckboxChange);
+          this.enableDrawCheckbox.removeEventListener('change', this.bound_enableDrawClick);
+      
+          if (this.paletteTool) this.paletteTool.removeEventListener('paletteChange', this.bound_onPaletteChange);
+      
+          if (this.canvas_) {
+            this.canvas_.removeEventListener('tileSelect', this.bound_onTileSelect);
+            this.canvas_.removeEventListener('paint', this.bound_onPaint);
+          }
         }
       
         get canvas() {
@@ -2746,7 +2983,11 @@
       
         set canvas(value) {
           this.canvas_ = value;
+          // calculate width based on aspect ratio of tile
+          this.tileDisplayWidth = (this.canvas_.tileWidth / this.canvas_.tileHeight) * this.tileDisplayHeight;
+          this.tileDrawScale = this.tileDisplayHeight / this.canvas_.tileHeight;
           this.tilePaletteChecker.canvas = value;
+          this.canvas_.addEventListener('tileSelect', this.bound_onTileSelect);
         }
       
         get paletteTool() {
@@ -2758,19 +2999,41 @@
           this.tilePaletteChecker.paletteTool = value;
         }
       
-        get checkbox() {
-          return this.shadowRoot.querySelector('input[type="checkbox"]');
+        get validationModeCheckbox() {
+          return this.shadowRoot.querySelector('#validation-mode-checkbox');
+        }
+      
+        get enableDrawCheckbox() {
+          return this.shadowRoot.querySelector('#enable-draw');
+        }
+      
+        enableDrawClick(e) {
+          if (this.drawEnabled) {
+            this.disableDraw();
+          } else {
+            this.enableDraw();
+          }
+        }
+      
+        enableDraw() {
+          this.drawEnabled = true;
+          this.canvas.enableDrawEvents();
+          this.canvas.addEventListener('paint', this.bound_onPaint);
+        }
+      
+        disableDraw() {
+          this.drawEnabled = false;
+          this.canvas.enableTileValidationEvents();
+          this.canvas.removeEventListener('paint', this.bound_onPaint);
         }
       
         check() {
           this.data = this.tilePaletteChecker.check();
-          this.checkbox.removeEventListener('change', this.bound_onCheckboxChange);
+          this.canvas.tileValidation = this.data;
           this.render();
-          this.checkbox.addEventListener('change', this.bound_onCheckboxChange);
         }
       
         showCanvas() {
-          this.canvas.tileValidation = this.data;
           this.canvas.showTileValidation();
         }
       
@@ -2779,14 +3042,61 @@
         }
       
         onCheckboxChange(e) {
-          if (this.checkbox.checked) {
-            this.checked_ = true;
+          if (this.validationModeCheckbox.checked) {
+            this.validationModeChecked_ = true;
             this.check();
             this.showCanvas();
+            this.paletteTool.addEventListener('paletteChange', this.bound_onPaletteChange);
           } else {
-            this.checked_ = false;
+            this.validationModeChecked_ = false;
+            this.selected = undefined;
             this.hideCanvas();
+            this.render();
+            this.paletteTool.removeEventListener('paletteChange', this.bound_onPaletteChange);
           }
+        }
+      
+        onTileSelect(e) {
+          this.selected = e.detail.selectedTile;
+          this.render();
+          this.drawTile();
+        }
+      
+        drawTile() {
+          const tileCanvas = this.shadowRoot.querySelector('#selected-tile-canvas');
+          if (!tileCanvas) return;
+      
+          const ctx = tileCanvas.getContext('2d');
+          const pixelScale = this.tileDrawScale;
+          const tileData = this.data.rawTileData[this.selected];
+          const pixelsX = this.canvas.tileWidth;
+          const pixelsY = this.canvas.tileHeight;
+          let x;
+          let y = 0;
+      
+          this.clearTile();
+      
+          for(; y < pixelsY; y += 1) {
+            for(x = 0; x < pixelsX; x += 1) {
+              ctx.fillStyle = `rgba(${tileData[y * pixelsX + x].join(',')})`;
+              ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+            }
+          }
+        }
+      
+        clearTile() {
+          this.shadowRoot.querySelector('#selected-tile-canvas').width = this.tileDisplayWidth;
+        }
+      
+        onPaint() {
+          this.check();
+          this.drawTile();
+        }
+      
+        onPaletteChange(e) {
+          console.log('paletteChange');
+          this.check();
+          this.drawTile();
         }
       
         styles() {
@@ -2798,6 +3108,12 @@
               border-radius: 3px;
               padding: 4px;
               padding-right: 8px;
+            }
+      
+            .sub-header {
+              font-size: 16px;
+              color: #777;
+              margin-bottom: 4px;
             }
       
             label {
@@ -2812,19 +3128,76 @@
               font-weight: bold;
               color: #777;
             }
+      
+            .value {
+              width: 40px;
+            }
+      
+            .row {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .column {
+              display: flex;
+              flex-direction: column;
+            }
+      
+            section {
+              margin-top: 6px;
+              padding: 6px;
+            }
+      
+            .reason {
+              font-size: 12px;
+              color: #777;
+              margin-top: -8px;
+              margin-left: 1px;
+              margin-bottom: 12px;
+            }
+      
+            .reason.warn {
+              color: #ff3a3a;
+            }
+      
+            .reason.success {
+              color: #8aff39;
+            }
           `;
         }
       
       
         template() {
+          const valid = this.selected !== undefined ? this.data.tileValidationData[this.selected].valid : false;
           return html`
-            <div>
-              <input type="checkbox" ${this.checked_ ? 'checked' : ''}>
-              <label>Tile validation mode</label>
+            <div class="row">
+              <input id="validation-mode-checkbox" type="checkbox" ${this.validationModeChecked_ ? 'checked' : ''}>
+              <label style="padding-right: 8px;">Tile validation mode</label>
+              <input id="enable-draw" type="checkbox" ${this.drawEnabled ? 'checked' : ''} >
+              <label>Enable draw</label>
+      
+      
+              <span style="flex: 1"></span>
+              <span class="label">Invalid tiles: </span><span class="value">${this.data ? this.data.invalidTiles.length : ''}</span>
             </div>
-            <div>
-              <span class="label">Invalid tiles: </span><span>${this.data ? this.data.invalidTiles.length : ''}</span>
-            </div>
+      
+            <section>
+              <div class="sub-header">Selected tile</div>
+              <div>
+                ${this.selected === undefined ?
+                  html`
+                    <div class="reason">No tile selected</div>
+                  ` :
+                  html`
+                    <div class="reason warn" style="${!valid ? '' : 'display: none;'}">${this.data.tileValidationData[this.selected].reason}</div>
+                    <div class="reason success" style="${valid ? '' : 'display: none;'}">Valid</div>
+                    <div class="row">
+                      <canvas id="selected-tile-canvas" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
+                    </div>
+                  `
+                }
+              </div>
+            </section>
           `;
         }
       
@@ -2834,9 +3207,11 @@
         
       
               render() {
+                if (this.beforeRender) this.beforeRender();
                 const renderBlock = this.shadowRoot.querySelector('render-block');
                 if (!renderBlock) throw Error('Could not find <render-block>');
                 renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
               }
       
               cloneTemplate(rerender = false) {
@@ -2983,7 +3358,7 @@
                 <div class="icon-button">edit</div>
                 <div class="icon-button">brush</div>
                 <div class="icon-button">colorize</div>
-                <div class="icon-button">checkerboard</div>
+                <div class="icon-button">check</div>
                 <!-- <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
                   <img id="validate-tile-on" src="earth-box.svg" alt="validate-tile-on" style="display: none;">
                   <img id="validate-tile-off" src="earth-box-off.svg" alt="validate-tile-off">
@@ -3037,7 +3412,7 @@
           <div class="icon-button">edit</div>
           <div class="icon-button">brush</div>
           <div class="icon-button">colorize</div>
-          <div class="icon-button">checkerboard</div>
+          <div class="icon-button">check</div>
           <!-- <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
             <img id="validate-tile-on" src="earth-box.svg" alt="validate-tile-on" style="display: none;">
             <img id="validate-tile-off" src="earth-box-off.svg" alt="validate-tile-off">

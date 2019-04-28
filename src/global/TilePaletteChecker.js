@@ -20,12 +20,12 @@ module.exports = class TilePaletteChecker {
   }
 
   check() {
-    const tileData = this.canvas.getTileData();
+    const { tileColors, rawTileData } = this.canvas.getTileData();
     const palettes = this.palettes;
     const paletteColorLength = palettes[0].length;
     const invalidTiles = [];
 
-    const tiles = tileData.map((t, i) => {
+    const tileValidationData = tileColors.map((t, i) => {
       const tileColors = Object.keys(t).map(parseInt);
       const colorCount = tileColors.length;
       const paletteMatch = this.matchPalette(palettes, tileColors);
@@ -43,16 +43,17 @@ module.exports = class TilePaletteChecker {
       if (!valid) invalidTiles.push(i);
 
       return {
-        valid: valid,
+        valid,
         tileId: i,
-        reson: reason,
+        reason,
         palette: paletteMatch,
         colors: tileColors
       };
     });
 
     return {
-      tiles,
+      rawTileData,
+      tileValidationData,
       invalidTiles,
       valid: invalidTiles.length > 0
     };

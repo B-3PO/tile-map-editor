@@ -106,3 +106,13 @@ grid-settings {
   background-color: #AAA;
   border-radius: 4px;
 }
+
+.row {
+  display: flex;
+  flex-direction: row;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+}
