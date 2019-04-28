@@ -215,7 +215,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   set gridSize({x, y}) {
     this.gridSize_ = {x, y};
-    if (this.showGrid) this.drawGrid();
+    if (this.showGrid_) this.drawGrid();
   }
 
   get tileWidth() {
@@ -374,7 +374,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
   }
 
-  showGrid() {
+  showGrid() {;
     this.showGrid_ = true;
     this.drawGrid();
   }

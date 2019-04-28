@@ -12,8 +12,8 @@ customElements.define('grid-settings', class extends HTMLElementExtended {
   }
 
   connectedCallback() {
-    this.inputX.value = 8;
-    this.inputY.value = 8;
+    this.valueX = 8;
+    this.valueY = 8;
     this.bound_inputXChange = this.inputXChange.bind(this);
     this.bound_inputYChange = this.inputYChange.bind(this);
     this.bound_checkboxChange = this.checkboxChange.bind(this);

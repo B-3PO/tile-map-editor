@@ -60,7 +60,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   onCheckboxChange(e) {
-    console.log(this.checkbox.checked);
     if (this.checkbox.checked) {
       this.checked_ = true;
       this.check();
