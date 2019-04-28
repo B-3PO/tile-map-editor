@@ -35,6 +35,8 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   afterRender() {
+    const colors = this.shadowRoot.querySelector('palette-display');
+    if (colors) colors.colors = this.paletteTool.palettes[0];
     this.addEvents();
   }
 
@@ -279,6 +281,9 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
             html`
               <div class="reason warn" style="${!valid ? '' : 'display: none;'}">${this.data.tileValidationData[this.selected].reason}</div>
               <div class="reason success" style="${valid ? '' : 'display: none;'}">Valid</div>
+              <div class="row">
+                <palette-display></palette-display>
+              </div>
               <div class="row">
                 <canvas id="selected-tile-canvas" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
               </div>

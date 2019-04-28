@@ -109,20 +109,6 @@ module.exports = class Home extends Page {
     image.src = window.URL.createObjectURL(file);
   }
 
-  // toggleTileValidation() {
-  //   document.querySelector('#validate-tile-on').style.display = 'none';
-  //   document.querySelector('#validate-tile-off').style.display = 'none';
-  //   if (!this.tileValidationOn) {
-  //     this.tileValidationOn = true;
-  //     document.querySelector('#validate-tile-on').style.display = 'block';
-  //     this.tilePaletteValidator.check();
-  //     this.tilePaletteValidator.showCanvas();
-  //   } else {
-  //     this.tileValidationOn = false;
-  //     document.querySelector('#validate-tile-off').style.display = 'block';
-  //   }
-  // }
-
   template() {
     return html`
       ${!this.diableEntry ? '<entry-dialog></entry-dialog>' : ''}
@@ -130,15 +116,16 @@ module.exports = class Home extends Page {
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button">edit</div>
-          <div class="icon-button">brush</div>
-          <div class="icon-button">colorize</div>
-          <div class="icon-button">check</div>
-          <!-- <div class="icon-button-svg" onclick="$Home.toggleTileValidation()">
-            <img id="validate-tile-on" src="earth-box.svg" alt="validate-tile-on" style="display: none;">
-            <img id="validate-tile-off" src="earth-box-off.svg" alt="validate-tile-off">
-          </div> -->
+          <div class="icon-button-svg">
+            <img src="eyedropper.svg" alt="color-picker">
+          </div>
+          <div class="icon-button-svg">
+            <img src="format-color-fill.svg" alt="color-fill">
+          </div>
           <div style="flex: 1;"></div>
-          <label for="fileChooser" class="icon-button">image</label>
+          <label for="fileChooser" class="icon-button-svg">
+            <img src="file-upload.svg" alt="image-upload">
+          </label>
           <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
           <div class="icon-button">save</div>
         </div>

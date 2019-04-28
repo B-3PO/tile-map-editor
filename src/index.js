@@ -11,6 +11,7 @@ require('./components/scale-range.js');
 require('./components/grid-settings.js');
 require('./components/entry-dialog.js');
 require('./components/tile-palette-validator.js');
+require('./components/palette-display.js');
 
 global.loadFolder('src/global');
 

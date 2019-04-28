@@ -615,9 +615,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         cursor: none;
         user-select: none;
         pointer-events: none;
-        border: 1px solid #DDD;
-        width: 4px;
-        height: 4px;
       }
 
       .cursor.hide {

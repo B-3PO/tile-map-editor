@@ -97,7 +97,7 @@ grid-settings {
 .icon-button-svg {
   display: inline-block;
   margin: 4px;
-  padding: 6px;
+  padding: 3px 6px;
   cursor: pointer;
   user-select: none;
 }
