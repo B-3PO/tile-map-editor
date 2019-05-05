@@ -213,6 +213,177 @@
       }
     
       
+      window.CanvasToGameboyC = class CanvasToGameboyC {
+        constructor(canvasElement, paletteToolElement) {
+          this.canvas = canvasElement;
+          this.paletteTool = paletteToolElement;
+          const { rawPixelData } = canvasElement.getTileData();
+          this.rawPixelData = rawPixelData;
+          this.palettes = paletteToolElement.palettes;
+          this.tileWidth = canvasElement.tileWidth;
+          this.tileHeight = canvasElement.tileHeight;
+      
+          this.tilePaletteChecker = new TilePaletteChecker(canvasElement, paletteToolElement);
+        }
+      
+        process(fileName, varName) {
+          this.validityData = this.tilePaletteChecker.check();
+          if (this.validityData.valid === false) throw Error('You have invalid tiles, pleach check "Tile validation mode"');
+      
+          const palettes = this.createPaletteForFile();
+          const tilePaletteArray = this.createTilePaletteArray();
+          const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
+          const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
+          return this.formatFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+        }
+      
+        createPaletteForFile() {
+          return this.palettes.map(palette => palette.map(rgba => this.convertToRGBInt(rgba)));
+        }
+      
+        convertTo32Range(c) {
+          return Math.floor((c / 255) * 31);
+        }
+      
+        createTilePaletteArray() {
+          const { tileValidationData } = this.tilePaletteChecker.check();
+          return tileValidationData.map(d => `0x0${d.palette}`);
+        }
+      
+        createTileArray(pixelData) {
+          const pixelsY = this.canvas.height;
+          const pixelsX = this.canvas.width;
+          const tileWidth = this.canvas.tileWidth;
+          const tileHeight = this.canvas.tileHeight;
+          const tilesX = pixelsX / tileWidth;
+          const tilesY = pixelsY / tileHeight;
+          const pixelsPerTile = tileWidth * tileHeight;
+      
+          let arr = [];
+          let y = 0;
+          let x;
+          let z;
+          let tile;
+          let startingPixel;
+      
+          // loop through tiles
+          for (;y < tilesY; y += 1) {
+            for (x = 0; x < tilesX; x += 1) {
+              tile = (y * tilesX) + x;
+      
+              // loop thorugh each row in tile
+              for(z = 0; z < tileHeight; z += 1) {
+                startingPixel = tile * pixelsPerTile + (z * tileWidth);
+                arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+              }
+            }
+          }
+      
+          return arr;
+        }
+      
+        createTilePixelRow(pixels) {
+          let hbits = 0;
+          let lbits = 0;
+          let x = 0;
+          let length = pixels.length;
+          let p;
+      
+          for (; x < length; x += 1) {
+            lbits = lbits << 1;
+        		hbits = hbits << 1;
+      
+            p = pixels[x];
+            if (p === 1 || p === 3) lbits += 1;
+            if (p === 2 || p === 3) hbits += 1;
+          }
+      
+          return [`0x${('00' + lbits.toString(16)).slice(-2).toUpperCase()}`, `0x${('00' + hbits.toString(16)).slice(-2).toUpperCase()}`];
+        }
+      
+        convertToRGBInt(rgba) {
+          return (rgba[0] >> 3) | ((rgba[1] >> 3) << 5) | ((rgba[2] >> 3) << 10);
+        }
+      
+        convertPixelsToIndexedColor(rawPixelData, palettes) {
+          const tilePixelCount = this.canvas.tileWidth * this.canvas.tileHeight;
+          return rawPixelData
+            .map(rgba => this.convertToRGBInt(rgba))
+            .map((cint, i) => {
+              const palette = palettes[this.validityData.tileValidationData[Math.floor(i / tilePixelCount)].palette];
+              return this.matchColorToPalette(cint, palette);
+            });
+        }
+      
+        matchColorToPalette(cint, palette) {
+          return palette.indexOf(cint);
+        }
+      
+        formatFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+          const hFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+          const cFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+      
+          return { hFile, cFile };
+        }
+      
+        formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+          const tileCount = tilePaletteArray.length;
+          return stripIndents`
+            ${this.getComentBlock(fileName, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+            ${stripIndents`
+            /* CGBpalette entries. */
+            unsigned char ${varName}PaletteEntries[${tileCount}] = {
+              ${tilePaletteArray.join(',')}
+            };
+      
+            /* Start of tile array. */
+            unsigned char ${varName}[${tileArray.length}] = {
+              ${tileArray.join(',')}
+            };
+            `}
+          `;
+        }
+      
+        formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+          return stripIndents`
+            ${this.getComentBlock(fileName, tilePaletteArray.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      
+            ${palettes.map((palette, i) => {
+              return stripIndents`
+                /* Gameboy Color palette ${i} */
+                #define ${varName}CGBPal${i}c0 ${palette[0]}
+                #define ${varName}CGBPal${i}c1 ${palette[1]}
+                #define ${varName}CGBPal${i}c2 ${palette[2]}
+                #define ${varName}CGBPal${i}c3 ${palette[3]}
+              `;
+            }).join('\n')}
+      
+            ${stripIndents`
+            /* CGBpalette entries. */
+            extern unsigned char ${varName}PaletteEntries[];
+      
+            /* Start of tile array. */
+            extern unsigned char ${varName}[];
+            `}
+          `;
+        }
+      
+        getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = c) {
+          return stripIndents`
+            /*
+             ${fileName}.${type}
+      
+             Tile Source File.
+      
+             Info:
+              Tile size            : ${tileWidth} x ${tileHeight}
+              Tiles                : ${tileCount}
+              CGB Palette          : 1 Byte per entry.
+            */
+          `;
+        }
+      }
       window.TilePaletteChecker = class TilePaletteChecker {
         constructor(canvas, palette) {
           this.canvas = canvas;
@@ -241,7 +412,7 @@
           const invalidTiles = [];
       
           const tileValidationData = tileColors.map((t, i) => {
-            const tileColors = Object.keys(t).map(parseInt);
+            const tileColors = Object.keys(t).map(n => parseInt(n));
             const colorCount = tileColors.length;
             const paletteMatch = this.matchPalette(palettes, tileColors);
             let valid = true;
@@ -270,7 +441,7 @@
             rawTileData,
             tileValidationData,
             invalidTiles,
-            valid: invalidTiles.length > 0
+            valid: invalidTiles.length === 0
           };
         }
       
@@ -296,12 +467,21 @@
           return arr.map(this.RGBAtoInt);
         }
       
+        // TODO fix these
         RGBAtoInt(arr) {
           return ((Math.round(arr[3] * 255) << 24) >>> 0 | arr[0] << 16 | arr[1] << 8 | arr[2]) >>> 0;
         }
       
         intToRGBA(num) {
-          return `rgba(${num >> 24 & 255},${num >> 16 & 255},${num >> 8  & 255},${(num & 255) / 255})`;
+          let alpha = num >> 24 & 255;
+          if (alpha > 1) alpha = alpha / 255;
+          return `rgba(${num >> 16 & 255},${num >> 8  & 255},${num & 255},${alpha})`;
+        }
+      
+        intToRGBAArray(num) {
+          let alpha = num >> 24 & 255;
+          if (alpha > 1) alpha = alpha / 255;
+          return [num >> 16 & 255, num >> 8  & 255, num & 255, alpha];
         }
       }
       window.Utils = class Utils {
@@ -916,16 +1096,16 @@
                   <div class="palette">
                     <input type="checkbox" checked id="palette-0" class="palette-select">
                     
-                      <div class="color" style="background-color: rgba(0,0,0,1);" location="0-0"></div>
+                      <div class="color" style="background-color: rgba(255,255,255,1);" location="0-0"></div>
                     
         
-                      <div class="color" style="background-color: rgba(63,63,63,1);" location="0-1"></div>
+                      <div class="color" style="background-color: rgba(127,127,127,1);" location="0-1"></div>
                     
         
-                      <div class="color" style="background-color: rgba(127,127,127,1);" location="0-2"></div>
+                      <div class="color" style="background-color: rgba(63,63,63,1);" location="0-2"></div>
                     
         
-                      <div class="color" style="background-color: rgba(191,191,191,1);" location="0-3"></div>
+                      <div class="color" style="background-color: rgba(0,0,0,1);" location="0-3"></div>
                     
                   </div>
         
@@ -955,12 +1135,28 @@
           this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
           this.bound_clickColor = this.clickColor.bind(this);
           this.bound_onColorChange = this.onColorChange.bind(this);
+          this.addEvents();
+        }
+      
+        disconnectedCallback() {
+          this.removeEvents();
+        }
+      
+        beforeRender() {
+          this.removeEvents();
+        }
+      
+        afterRender() {
+          this.addEvents();
+        }
+      
+        addEvents() {
           this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
           this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
           this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
         }
       
-        disconnectedCallback() {
+        removeEvents() {
           this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickColor);
           this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
         }
@@ -1054,8 +1250,9 @@
           const step = 255 / this.colorCount;
           return [...new Array(this.colorCount)].map((_, i) => {
             const value = parseInt(step * i);
+            if (i === this.colorCount - 1) return [255, 255, 255, 1];
             return [value, value, value, 1];
-          });
+          }).reverse();
         }
       
         updatePalette(arr) {
@@ -1735,6 +1932,7 @@
           const tileRowCount = width / tileWidth;
           const tileColors = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ({}));
           const rawTileData = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ([]));
+          const rawPixelData = [];
           let currentRow = 0;
           let currentColumn = 0;
           let pixelCounter = 0;
@@ -1746,6 +1944,7 @@
             for (; currentColumn < width; currentColumn += 1) {
               tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
               rawColor = [pData[pixelCounter], pData[pixelCounter + 1], pData[pixelCounter + 2], pData[pixelCounter + 3] / 255];
+              rawPixelData.push(rawColor);
               tileColors[tile][this.RGBAtoInt(rawColor)] = true;
               rawTileData[tile].push(rawColor);
               pixelCounter += 4;
@@ -1754,6 +1953,7 @@
           }
       
           return {
+            rawPixelData,
             tileColors,
             rawTileData
           };
@@ -1783,7 +1983,6 @@
         }
       
         hideTileValidation() {
-          console.log('hideTileValidation');
           this.showTileValidation_ = false;
           const ctx = this.tileValidationContext;
           ctx.canvas.width = ctx.canvas.width;
@@ -1873,6 +2072,28 @@
         }
       
       
+        // TODO create this
+        drawTile(tileId, tileData) {
+          const ctx = this.backgroundContext;
+          const tileRowCount = this.canvasWidth / this.tileWidth;
+          const startY = Math.floor(tileId / tileRowCount) * this.tileHeight;
+          const startX = (tileId % tileRowCount) * this.tileWidth;
+          const pixelsY = this.tileHeight;
+          const pixelsX = this.tileWidth;
+          let counter = 0;
+          let y = 0;
+          let x;
+      
+          for(; y < pixelsY; y += 1) {
+            for(x = 0; x < pixelsX; x += 1) {
+              ctx.fillStyle = `rgba(${tileData[counter]})`;
+              ctx.fillRect(startX + x, startY + y, 1, 1);
+              counter += 1;
+            }
+          }
+        }
+      
+      
         // --- events enablers ---
       
         enableDrawEvents() {
@@ -1895,6 +2116,10 @@
           this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = 'none';
         }
       
+      
+        getDataURL(type) {
+          return this.backgroundCanvas.toDataURL(type);
+        }
       
         styles() {
           return css`
@@ -2501,10 +2726,10 @@
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
               <label for="pixels-x">x</label>
-              <input name="pixels-x" type="number" value="160" >
+              <input name="pixels-x" type="number" value="8" >
               <span>px</span>
               <label for="pixels-x">y</label>
-              <input name="pixels-y" type="number" value="144" >
+              <input name="pixels-y" type="number" value="8" >
               <span>px</span>
             </div>
       
@@ -2749,10 +2974,10 @@
                   <div class="sub-header">Canvas size</div>
                   <div class="control-container">
                     <label for="pixels-x">x</label>
-                    <input name="pixels-x" type="number" value="160" >
+                    <input name="pixels-x" type="number" value="8" >
                     <span>px</span>
                     <label for="pixels-x">y</label>
-                    <input name="pixels-y" type="number" value="144" >
+                    <input name="pixels-y" type="number" value="8" >
                     <span>px</span>
                   </div>
       
@@ -2884,13 +3109,37 @@
       .reason.success {
         color: #8aff39;
       }
+      
+      .tile-spacer {
+        height: 80px;
+        margin-left: 24px;
+        margin-right: 24px;
+        border-left: 1px solid #444;
+      }
+      
+      .palette-displays,
+      .palette-tile {
+        margin-right: 24px;
+        border: 2px solid rgba(0, 0, 0, 0);
+      }
+      
+      .palette-tile:hover {
+        border: 2px solid rgb(0, 255, 48);
+        cursor: pointer;
+      }
+      
+      .selected-display {
+        margin-right: 49px;
+      }
+      
+      button {
+        cursor: pointer;
+      }
           </style>
           <render-block>
             <div class="row">
         <input id="validation-mode-checkbox" type="checkbox" >
         <label style="padding-right: 8px;">Tile validation mode</label>
-        <input id="enable-draw" type="checkbox"  >
-        <label>Enable draw</label>
       
       
         <span style="flex: 1"></span>
@@ -2928,9 +3177,9 @@
           this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
           this.bound_onTileSelect = this.onTileSelect.bind(this);
           this.bound_onCheckboxChange = this.onCheckboxChange.bind(this);
-          this.bound_enableDrawClick = this.enableDrawClick.bind(this);
-          this.bound_onPaint = this.onPaint.bind(this);
           this.bound_onPaletteChange = this.onPaletteChange.bind(this);
+          this.bound_paletteTileClick = this.paletteTileClick.bind(this);
+          this.bound_applyChanges = this.applyChanges.bind(this);
           this.addEvents();
         }
       
@@ -2943,14 +3192,17 @@
         }
       
         afterRender() {
-          const colors = this.shadowRoot.querySelector('palette-display');
-          if (colors) colors.colors = this.paletteTool.palettes[0];
+          const colorDisplays = [...this.shadowRoot.querySelectorAll('palette-display')];
+          if (colorDisplays.length) {
+            const selected = colorDisplays.shift();
+            selected.colors = this.selectedPalette;
+            colorDisplays.forEach((el, i) => el.colors = this.paletteTool.palettes[i])
+          }
           this.addEvents();
         }
       
         addEvents() {
           this.validationModeCheckbox.addEventListener('change', this.bound_onCheckboxChange);
-          this.enableDrawCheckbox.addEventListener('change', this.bound_enableDrawClick);
       
           if (this.paletteTool) {
             if (this.validationModeChecked_) this.paletteTool.addEventListener('paletteChange', this.bound_onPaletteChange);
@@ -2958,20 +3210,25 @@
       
           if (this.canvas_) {
             this.canvas_.addEventListener('tileSelect', this.bound_onTileSelect);
-            if (this.drawEnabled) this.canvas_.addEventListener('paint', this.bound_onPaint);
           }
+      
+          const paletteTiles = [...this.shadowRoot.querySelectorAll('.palette-tile')];
+          paletteTiles.forEach(el => el.addEventListener('click', this.bound_paletteTileClick));
+          if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
         }
       
         removeEvents() {
           this.validationModeCheckbox.removeEventListener('change', this.bound_onCheckboxChange);
-          this.enableDrawCheckbox.removeEventListener('change', this.bound_enableDrawClick);
       
           if (this.paletteTool) this.paletteTool.removeEventListener('paletteChange', this.bound_onPaletteChange);
       
           if (this.canvas_) {
             this.canvas_.removeEventListener('tileSelect', this.bound_onTileSelect);
-            this.canvas_.removeEventListener('paint', this.bound_onPaint);
           }
+      
+          const paletteTiles = [...this.shadowRoot.querySelectorAll('.palette-tile')];
+          paletteTiles.forEach(el => el.removeEventListener('click', this.bound_paletteTileClick));
+          if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
         }
       
         get canvas() {
@@ -3000,28 +3257,13 @@
           return this.shadowRoot.querySelector('#validation-mode-checkbox');
         }
       
-        get enableDrawCheckbox() {
-          return this.shadowRoot.querySelector('#enable-draw');
+        get tileData() {
+          if (!this.tileData_) this.tileData_ = this.data.rawTileData[this.selected];
+          return this.tileData_;
         }
       
-        enableDrawClick(e) {
-          if (this.drawEnabled) {
-            this.disableDraw();
-          } else {
-            this.enableDraw();
-          }
-        }
-      
-        enableDraw() {
-          this.drawEnabled = true;
-          this.canvas.enableDrawEvents();
-          this.canvas.addEventListener('paint', this.bound_onPaint);
-        }
-      
-        disableDraw() {
-          this.drawEnabled = false;
-          this.canvas.enableTileValidationEvents();
-          this.canvas.removeEventListener('paint', this.bound_onPaint);
+        set tileData(value) {
+          this.tileData_ = value;
         }
       
         check() {
@@ -3055,45 +3297,97 @@
       
         onTileSelect(e) {
           this.selected = e.detail.selectedTile;
+          this.selectedValidation = this.data.tileValidationData[this.selected];
+          this.selectedPalette = this.selectedValidation.palette;
+          this.originalPalette = this.selectedPalette !== undefined ? this.selectedPalette : this.createTempPalette();
+          this.preventTileDataReload = false;
           this.render();
-          this.drawTile();
+          this.drawPaletteVariations();
         }
       
-        drawTile() {
-          const tileCanvas = this.shadowRoot.querySelector('#selected-tile-canvas');
+        paletteTileClick(e) {
+          const id = e.target.getAttribute('id');
+          const index = id.split('-').pop();
+          this.selectedPalette = this.paletteTool.palettes[index];
+          this.render();
+          this.drawPaletteVariations();
+          this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
+        }
+      
+        drawTile(selector, palette) {
+          const tileCanvas = this.shadowRoot.querySelector(selector);
           if (!tileCanvas) return;
       
           const ctx = tileCanvas.getContext('2d');
+          if (!palette) {
+            ctx.stokeStyle = 'red';
+            ctx.strokeRect(0, 0, 80, 80);
+            return;
+          }
+      
+          const isSelectedTile = selector === '#selected-tile-canvas';
+          if (isSelectedTile) this.selectedTileData = [];
           const pixelScale = this.tileDrawScale;
-          const tileData = this.data.rawTileData[this.selected];
+          const tileData = this.tileData;
           const pixelsX = this.canvas.tileWidth;
           const pixelsY = this.canvas.tileHeight;
           let x;
           let y = 0;
-      
-          this.clearTile();
+          let palettePosition;
+          let currentPixelColor;
       
           for(; y < pixelsY; y += 1) {
             for(x = 0; x < pixelsX; x += 1) {
-              ctx.fillStyle = `rgba(${tileData[y * pixelsX + x].join(',')})`;
+              currentPixelColor = this.tilePaletteChecker.RGBAtoInt(tileData[y * pixelsX + x]);
+              palettePosition = this.originalPalette.map(c => this.tilePaletteChecker.RGBAtoInt(c)).indexOf(currentPixelColor);
+              ctx.fillStyle = `rgba(${palette[palettePosition]})`;
+              // console.log(currentPixelColor, palettePosition, this.originalPalette, palette);
               ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+              if (isSelectedTile) {
+                this.selectedTileData.push(palette[palettePosition]);
+              }
             }
           }
         }
       
-        clearTile() {
-          this.shadowRoot.querySelector('#selected-tile-canvas').width = this.tileDisplayWidth;
+        createTempPalette() {
+          const tileColors = this.data.tileValidationData[this.selected].colors.sort().map(c => this.tilePaletteChecker.intToRGBAArray(c));
+          if (tileColors.length < 4) {
+            let i = tileColors.length;
+            const length = 4;
+            for(; i < length; i += 1) {
+              tileColors.push([i * 50, i * 50, i * 50, 1]);
+            }
+          }
+          return tileColors;
         }
       
-        onPaint() {
-          this.check();
-          this.drawTile();
+        drawPaletteVariations() {
+          this.clearTiles();
+      
+          // draw current tile in selected spot
+          this.drawTile('#selected-tile-canvas', this.selectedPalette);
+      
+          this.paletteTool.palettes.forEach((palette, i) => {
+            this.drawTile(`#palette-tile-canvas-${i}`, palette);
+          });
+        }
+      
+        clearTiles() {
+          this.shadowRoot.querySelector('#selected-tile-canvas').width = this.tileDisplayWidth;
+          this.paletteTool.palettes.forEach((palette, i) => {
+            this.shadowRoot.querySelector(`#palette-tile-canvas-${i}`).width = this.tileDisplayWidth;
+          });
         }
       
         onPaletteChange(e) {
-          console.log('paletteChange');
           this.check();
-          this.drawTile();
+          this.selectedValidation = this.data.tileValidationData[this.selected];
+          this.drawPaletteVariations();
+        }
+      
+        applyChanges(e) {
+          this.canvas.drawTile(this.selected, this.selectedTileData);
         }
       
         styles() {
@@ -3161,6 +3455,32 @@
             .reason.success {
               color: #8aff39;
             }
+      
+            .tile-spacer {
+              height: 80px;
+              margin-left: 24px;
+              margin-right: 24px;
+              border-left: 1px solid #444;
+            }
+      
+            .palette-displays,
+            .palette-tile {
+              margin-right: 24px;
+              border: 2px solid rgba(0, 0, 0, 0);
+            }
+      
+            .palette-tile:hover {
+              border: 2px solid rgb(0, 255, 48);
+              cursor: pointer;
+            }
+      
+            .selected-display {
+              margin-right: 49px;
+            }
+      
+            button {
+              cursor: pointer;
+            }
           `;
         }
       
@@ -3171,8 +3491,6 @@
             <div class="row">
               <input id="validation-mode-checkbox" type="checkbox" ${this.validationModeChecked_ ? 'checked' : ''}>
               <label style="padding-right: 8px;">Tile validation mode</label>
-              <input id="enable-draw" type="checkbox" ${this.drawEnabled ? 'checked' : ''} >
-              <label>Enable draw</label>
       
       
               <span style="flex: 1"></span>
@@ -3190,10 +3508,20 @@
                     <div class="reason warn" style="${!valid ? '' : 'display: none;'}">${this.data.tileValidationData[this.selected].reason}</div>
                     <div class="reason success" style="${valid ? '' : 'display: none;'}">Valid</div>
                     <div class="row">
-                      <palette-display></palette-display>
+                      <palette-display class="selected-display"></palette-display>
+      
+                      ${this.paletteTool.palettes.map((palette, i) => html`
+                        <palette-display class="palette-displays"></palette-display>
+                      `).join('\n')}
                     </div>
                     <div class="row">
                       <canvas id="selected-tile-canvas" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
+                      <div class="tile-spacer"></div>
+                      ${this.paletteTool.palettes.map((palette, i) => html`
+                        <canvas id="palette-tile-canvas-${i}" class="palette-tile" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
+                      `).join('\n')}
+      
+                      <button id="apply-changes">Apply change</button>
                     </div>
                   `
                 }
@@ -3234,13 +3562,13 @@
             .container {
         display: flex;
         flex-direction: row;
-        min-width: 100px;
-        height: 25px;
+        flex-wrap: wrap;
+        width: 80px;
       }
       
       .color {
-        flex: 1;
-        height: 25px;
+        width: 20px;
+        height: 20px;
       }
           </style>
           <render-block>
@@ -3259,6 +3587,8 @@
         
           constructor() {
           super();
+          this.width = this.getAttribute('color-width') || 80;
+          this.colorWidth = this.getAttribute('color-width') || 20;
           this.cloneTemplate();
         }
           
@@ -3277,13 +3607,13 @@
             .container {
               display: flex;
               flex-direction: row;
-              min-width: 100px;
-              height: 25px;
+              flex-wrap: wrap;
+              width: ${this.width}px;
             }
       
             .color {
-              flex: 1;
-              height: 25px;
+              width: ${this.colorWidth}px;
+              height: 20px;
             }
           `;
         }
@@ -3321,6 +3651,317 @@
               }
             }
           );
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','save-dialog');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 11;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      
+      .container {
+        display: inline-block;
+        position: relative;
+        left: 50%;
+        top: 50%;
+        width: 360px;
+        height: auto;
+        transform: translate(-50%, -50%);
+      
+        background-color: #DDD;
+        border: 1px solid #999;
+        border-radius: 3px;
+        box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                    0 8px 10px 1px rgba(0,0,0,.14),
+                    0 3px 14px 2px rgba(0,0,0,.12);
+      }
+      
+      .title {
+        font-size: 22px;
+        color: #444;
+        margin-bottom: 24px;
+      }
+      
+      .sub-title {
+        font-size: 20px;
+        color: #444;
+        margin-bottom: 18px;
+      }
+      
+      .sub-header {
+        font-size: 16px;
+        color: #777;
+        margin-bottom: 4px;
+      }
+      
+      .content {
+        padding: 24px;
+      }
+      
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .controls {
+        margin-top: 24px;
+      }
+      
+      button {
+        align-items: center;
+        border: none;
+        border-radius: 4px;
+        box-sizing: border-box;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 33px;
+        justify-content: center;
+        line-height: 32px;
+        min-width: 64px;
+        outline: none;
+        overflow: hidden;
+        padding: 0 8px 0 8px;
+        position: relative;
+        vertical-align: middle;
+        margin: 0;
+        background-color: white;
+      }
+      
+      button:hover {
+        cursor: pointer;
+        background-color: #EEE;
+      }
+          </style>
+          <render-block>
+            <div class="container">
+        <div class="content">
+          <div class="title">Save</div>
+      
+          <label for="fileName">File name: </label>
+          <input name="fileName" value="name">
+      
+          <br/>
+      
+          <label for="imageType">Image type: </label>
+          <select name="imageType">
+            <option selected value="image/png">PNG</option>
+            <option value="image/jpg">JPG</option>
+            <option value="image/gif">GIF</option>
+          </select>
+      
+          <div class="controls">
+            <button id="save-button">save</button>
+          </div>
+        </div>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("save-dialog", 
+            class saveDialog extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.bound_save = this.save.bind(this);
+          this.saveButton.addEventListener('click', this.bound_save);
+        }
+      
+        disconnectedCallback() {
+          this.saveButton.removeEventListener('click', this.bound_save);
+        }
+      
+        get saveButton() {
+          return this.shadowRoot.querySelector('#save-button');
+        }
+      
+        get imageType() {
+          return this.shadowRoot.querySelector('select[name="imageType"]').value;
+        }
+      
+        get extension() {
+          return this.imageType.split('/')[1].toLowerCase();
+        }
+      
+        get fileName() {
+          return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}.${this.extension}`;
+        }
+      
+        save() {
+          this.downloadFile();
+          this.dispatchEvent(new CustomEvent('save', {
+            detail: {
+              fileName: this.fileName,
+              imageType: this.imageType
+            }
+          }));
+          this.remove();
+        }
+      
+        downloadFile() {
+          const link = document.createElement('a');
+          link.download = this.fileName;
+          link.href = document.querySelector('draw-canvas').getDataURL(this.imageType);
+          link.click();
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              position: fixed;
+              top: 0;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              z-index: 11;
+              background-color: rgba(0, 0, 0, 0.5);
+            }
+      
+            .container {
+              display: inline-block;
+              position: relative;
+              left: 50%;
+              top: 50%;
+              width: 360px;
+              height: auto;
+              transform: translate(-50%, -50%);
+      
+              background-color: #DDD;
+              border: 1px solid #999;
+              border-radius: 3px;
+              box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                          0 8px 10px 1px rgba(0,0,0,.14),
+                          0 3px 14px 2px rgba(0,0,0,.12);
+            }
+      
+            .title {
+              font-size: 22px;
+              color: #444;
+              margin-bottom: 24px;
+            }
+      
+            .sub-title {
+              font-size: 20px;
+              color: #444;
+              margin-bottom: 18px;
+            }
+      
+            .sub-header {
+              font-size: 16px;
+              color: #777;
+              margin-bottom: 4px;
+            }
+      
+            .content {
+              padding: 24px;
+            }
+      
+            .row {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .controls {
+              margin-top: 24px;
+            }
+      
+            button {
+              align-items: center;
+              border: none;
+              border-radius: 4px;
+              box-sizing: border-box;
+              display: inline-flex;
+              font-size: 14px;
+              font-weight: 500;
+              height: 33px;
+              justify-content: center;
+              line-height: 32px;
+              min-width: 64px;
+              outline: none;
+              overflow: hidden;
+              padding: 0 8px 0 8px;
+              position: relative;
+              vertical-align: middle;
+              margin: 0;
+              background-color: white;
+            }
+      
+            button:hover {
+              cursor: pointer;
+              background-color: #EEE;
+            }
+          `;
+        }
+      
+      
+        template() {
+          return html`
+            <div class="container">
+              <div class="content">
+                <div class="title">Save</div>
+      
+                <label for="fileName">File name: </label>
+                <input name="fileName" value="name">
+      
+                <br/>
+      
+                <label for="imageType">Image type: </label>
+                <select name="imageType">
+                  <option selected value="image/png">PNG</option>
+                  <option value="image/jpg">JPG</option>
+                  <option value="image/gif">GIF</option>
+                </select>
+      
+                <div class="controls">
+                  <button id="save-button">save</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                if (this.beforeRender) this.beforeRender();
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('save-dialog');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
           });
         
     
@@ -3331,7 +3972,7 @@
           this.canvasWidth = 160;
           this.canvasHeight = 144;
           this.scale = 4;
-          this.diableEntry = true;
+          this.disableEntry = false;
         }
       
         connectedCallback() {
@@ -3342,7 +3983,7 @@
           this.canvas.tileWidth = 8;
           this.canvas.tileHeight = 8;
           this.bound_onCreate = this.onCreate.bind(this);
-          if (!this.diableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
+          if (!this.disableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
       
           this.tilePaletteValidator.canvas = this.canvas;
           this.tilePaletteValidator.paletteTool = this.paletteTool;
@@ -3350,7 +3991,7 @@
       
         disconnectedCallback() {
           this.paletteTool.removeEventListener('change', this.bound_paletteChange);
-          if (!this.diableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
+          if (!this.disableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
         }
       
         get title() {
@@ -3432,9 +4073,38 @@
           image.src = window.URL.createObjectURL(file);
         }
       
+        showSaveDialog() {
+          // document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
+          const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
+          const { hFile, cFile } = cl.process('test', 'Test');
+      
+          console.log(hFile);
+          console.log(cFile);
+      
+          // const linkpng = document.createElement('a');
+          // linkpng.download = 'test';
+          // linkpng.href = this.canvas.getDataURL('image/png');
+          // linkpng.click();
+          //
+          // const link = document.createElement('a');
+          // link.download = 'test.h';
+          // link.href = this.getDataBlob(hFile);
+          // link.click();
+          //
+          // const link2 = document.createElement('a');
+          // link2.download = 'test.c';
+          // link2.href = this.getDataBlob(cFile);
+          // link2.click();
+        }
+      
+        getDataBlob(data, contentType = 'application/octet-stream') {
+          data = btoa(data);
+          return `data:${contentType};base64,${data}`;
+        }
+      
         template() {
           return html`
-            ${!this.diableEntry ? '<entry-dialog></entry-dialog>' : ''}
+            ${!this.disableEntry ? '<entry-dialog></entry-dialog>' : ''}
       
             <div class="main-container">
               <div class="tool-bar">
@@ -3450,7 +4120,7 @@
                   <img src="file-upload.svg" alt="image-upload">
                 </label>
                 <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
-                <div class="icon-button">save</div>
+                <div class="icon-button" onclick="$Home.showSaveDialog()">save</div>
               </div>
               <div class="canvas-container">
                 <div class="canvas-plane">
@@ -3487,11 +4157,14 @@
       
       
       
+      
     </style>
   </head>
 
   <body>
     <render-block-page>
+      <entry-dialog></entry-dialog>
+      
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button">edit</div>
@@ -3506,7 +4179,7 @@
             <img src="file-upload.svg" alt="image-upload">
           </label>
           <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
-          <div class="icon-button">save</div>
+          <div class="icon-button" onclick="$Home.showSaveDialog()">save</div>
         </div>
         <div class="canvas-container">
           <div class="canvas-plane">

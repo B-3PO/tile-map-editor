@@ -436,6 +436,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const tileRowCount = width / tileWidth;
     const tileColors = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ({}));
     const rawTileData = [...new Array((width / tileWidth) * (height / tileHeight))].map(() => ([]));
+    const rawPixelData = [];
     let currentRow = 0;
     let currentColumn = 0;
     let pixelCounter = 0;
@@ -447,6 +448,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       for (; currentColumn < width; currentColumn += 1) {
         tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
         rawColor = [pData[pixelCounter], pData[pixelCounter + 1], pData[pixelCounter + 2], pData[pixelCounter + 3] / 255];
+        rawPixelData.push(rawColor);
         tileColors[tile][this.RGBAtoInt(rawColor)] = true;
         rawTileData[tile].push(rawColor);
         pixelCounter += 4;
@@ -455,6 +457,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     }
 
     return {
+      rawPixelData,
       tileColors,
       rawTileData
     };
@@ -484,7 +487,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   hideTileValidation() {
-    console.log('hideTileValidation');
     this.showTileValidation_ = false;
     const ctx = this.tileValidationContext;
     ctx.canvas.width = ctx.canvas.width;
@@ -574,6 +576,28 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
 
+  // TODO create this
+  drawTile(tileId, tileData) {
+    const ctx = this.backgroundContext;
+    const tileRowCount = this.canvasWidth / this.tileWidth;
+    const startY = Math.floor(tileId / tileRowCount) * this.tileHeight;
+    const startX = (tileId % tileRowCount) * this.tileWidth;
+    const pixelsY = this.tileHeight;
+    const pixelsX = this.tileWidth;
+    let counter = 0;
+    let y = 0;
+    let x;
+
+    for(; y < pixelsY; y += 1) {
+      for(x = 0; x < pixelsX; x += 1) {
+        ctx.fillStyle = `rgba(${tileData[counter]})`;
+        ctx.fillRect(startX + x, startY + y, 1, 1);
+        counter += 1;
+      }
+    }
+  }
+
+
   // --- events enablers ---
 
   enableDrawEvents() {
@@ -596,6 +620,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = 'none';
   }
 
+
+  getDataURL(type) {
+    return this.backgroundCanvas.toDataURL(type);
+  }
 
   styles() {
     return css`

@@ -12,6 +12,7 @@ require('./components/grid-settings.js');
 require('./components/entry-dialog.js');
 require('./components/tile-palette-validator.js');
 require('./components/palette-display.js');
+require('./components/save-dialog.js');
 
 global.loadFolder('src/global');
 

@@ -26,7 +26,7 @@ module.exports = class TilePaletteChecker {
     const invalidTiles = [];
 
     const tileValidationData = tileColors.map((t, i) => {
-      const tileColors = Object.keys(t).map(parseInt);
+      const tileColors = Object.keys(t).map(n => parseInt(n));
       const colorCount = tileColors.length;
       const paletteMatch = this.matchPalette(palettes, tileColors);
       let valid = true;
@@ -55,7 +55,7 @@ module.exports = class TilePaletteChecker {
       rawTileData,
       tileValidationData,
       invalidTiles,
-      valid: invalidTiles.length > 0
+      valid: invalidTiles.length === 0
     };
   }
 
@@ -81,11 +81,20 @@ module.exports = class TilePaletteChecker {
     return arr.map(this.RGBAtoInt);
   }
 
+  // TODO fix these
   RGBAtoInt(arr) {
     return ((Math.round(arr[3] * 255) << 24) >>> 0 | arr[0] << 16 | arr[1] << 8 | arr[2]) >>> 0;
   }
 
   intToRGBA(num) {
-    return `rgba(${num >> 24 & 255},${num >> 16 & 255},${num >> 8  & 255},${(num & 255) / 255})`;
+    let alpha = num >> 24 & 255;
+    if (alpha > 1) alpha = alpha / 255;
+    return `rgba(${num >> 16 & 255},${num >> 8  & 255},${num & 255},${alpha})`;
+  }
+
+  intToRGBAArray(num) {
+    let alpha = num >> 24 & 255;
+    if (alpha > 1) alpha = alpha / 255;
+    return [num >> 16 & 255, num >> 8  & 255, num & 255, alpha];
   }
 };

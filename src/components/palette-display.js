@@ -8,6 +8,8 @@ const {
 customElements.define('palette-display', class extends HTMLElementExtended {
   constructor() {
     super();
+    this.width = this.getAttribute('color-width') || 80;
+    this.colorWidth = this.getAttribute('color-width') || 20;
     this.cloneTemplate();
   }
 
@@ -25,13 +27,13 @@ customElements.define('palette-display', class extends HTMLElementExtended {
       .container {
         display: flex;
         flex-direction: row;
-        min-width: 100px;
-        height: 25px;
+        flex-wrap: wrap;
+        width: ${this.width}px;
       }
 
       .color {
-        flex: 1;
-        height: 25px;
+        width: ${this.colorWidth}px;
+        height: 20px;
       }
     `;
   }

@@ -4,6 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
+const TilePaletteChecker = require('../global/TilePaletteChecker');
 
 customElements.define('tile-palette-validator', class extends HTMLElementExtended {
   constructor() {
@@ -20,9 +21,9 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
     this.bound_onTileSelect = this.onTileSelect.bind(this);
     this.bound_onCheckboxChange = this.onCheckboxChange.bind(this);
-    this.bound_enableDrawClick = this.enableDrawClick.bind(this);
-    this.bound_onPaint = this.onPaint.bind(this);
     this.bound_onPaletteChange = this.onPaletteChange.bind(this);
+    this.bound_paletteTileClick = this.paletteTileClick.bind(this);
+    this.bound_applyChanges = this.applyChanges.bind(this);
     this.addEvents();
   }
 
@@ -35,14 +36,17 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   afterRender() {
-    const colors = this.shadowRoot.querySelector('palette-display');
-    if (colors) colors.colors = this.paletteTool.palettes[0];
+    const colorDisplays = [...this.shadowRoot.querySelectorAll('palette-display')];
+    if (colorDisplays.length) {
+      const selected = colorDisplays.shift();
+      selected.colors = this.selectedPalette;
+      colorDisplays.forEach((el, i) => el.colors = this.paletteTool.palettes[i])
+    }
     this.addEvents();
   }
 
   addEvents() {
     this.validationModeCheckbox.addEventListener('change', this.bound_onCheckboxChange);
-    this.enableDrawCheckbox.addEventListener('change', this.bound_enableDrawClick);
 
     if (this.paletteTool) {
       if (this.validationModeChecked_) this.paletteTool.addEventListener('paletteChange', this.bound_onPaletteChange);
@@ -50,20 +54,25 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
     if (this.canvas_) {
       this.canvas_.addEventListener('tileSelect', this.bound_onTileSelect);
-      if (this.drawEnabled) this.canvas_.addEventListener('paint', this.bound_onPaint);
     }
+
+    const paletteTiles = [...this.shadowRoot.querySelectorAll('.palette-tile')];
+    paletteTiles.forEach(el => el.addEventListener('click', this.bound_paletteTileClick));
+    if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
   }
 
   removeEvents() {
     this.validationModeCheckbox.removeEventListener('change', this.bound_onCheckboxChange);
-    this.enableDrawCheckbox.removeEventListener('change', this.bound_enableDrawClick);
 
     if (this.paletteTool) this.paletteTool.removeEventListener('paletteChange', this.bound_onPaletteChange);
 
     if (this.canvas_) {
       this.canvas_.removeEventListener('tileSelect', this.bound_onTileSelect);
-      this.canvas_.removeEventListener('paint', this.bound_onPaint);
     }
+
+    const paletteTiles = [...this.shadowRoot.querySelectorAll('.palette-tile')];
+    paletteTiles.forEach(el => el.removeEventListener('click', this.bound_paletteTileClick));
+    if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
   }
 
   get canvas() {
@@ -92,28 +101,13 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     return this.shadowRoot.querySelector('#validation-mode-checkbox');
   }
 
-  get enableDrawCheckbox() {
-    return this.shadowRoot.querySelector('#enable-draw');
+  get tileData() {
+    if (!this.tileData_) this.tileData_ = this.data.rawTileData[this.selected];
+    return this.tileData_;
   }
 
-  enableDrawClick(e) {
-    if (this.drawEnabled) {
-      this.disableDraw();
-    } else {
-      this.enableDraw();
-    }
-  }
-
-  enableDraw() {
-    this.drawEnabled = true;
-    this.canvas.enableDrawEvents();
-    this.canvas.addEventListener('paint', this.bound_onPaint);
-  }
-
-  disableDraw() {
-    this.drawEnabled = false;
-    this.canvas.enableTileValidationEvents();
-    this.canvas.removeEventListener('paint', this.bound_onPaint);
+  set tileData(value) {
+    this.tileData_ = value;
   }
 
   check() {
@@ -147,45 +141,97 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   onTileSelect(e) {
     this.selected = e.detail.selectedTile;
+    this.selectedValidation = this.data.tileValidationData[this.selected];
+    this.selectedPalette = this.selectedValidation.palette;
+    this.originalPalette = this.selectedPalette !== undefined ? this.selectedPalette : this.createTempPalette();
+    this.preventTileDataReload = false;
     this.render();
-    this.drawTile();
+    this.drawPaletteVariations();
   }
 
-  drawTile() {
-    const tileCanvas = this.shadowRoot.querySelector('#selected-tile-canvas');
+  paletteTileClick(e) {
+    const id = e.target.getAttribute('id');
+    const index = id.split('-').pop();
+    this.selectedPalette = this.paletteTool.palettes[index];
+    this.render();
+    this.drawPaletteVariations();
+    this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
+  }
+
+  drawTile(selector, palette) {
+    const tileCanvas = this.shadowRoot.querySelector(selector);
     if (!tileCanvas) return;
 
     const ctx = tileCanvas.getContext('2d');
+    if (!palette) {
+      ctx.stokeStyle = 'red';
+      ctx.strokeRect(0, 0, 80, 80);
+      return;
+    }
+
+    const isSelectedTile = selector === '#selected-tile-canvas';
+    if (isSelectedTile) this.selectedTileData = [];
     const pixelScale = this.tileDrawScale;
-    const tileData = this.data.rawTileData[this.selected];
+    const tileData = this.tileData;
     const pixelsX = this.canvas.tileWidth;
     const pixelsY = this.canvas.tileHeight;
     let x;
     let y = 0;
-
-    this.clearTile();
+    let palettePosition;
+    let currentPixelColor;
 
     for(; y < pixelsY; y += 1) {
       for(x = 0; x < pixelsX; x += 1) {
-        ctx.fillStyle = `rgba(${tileData[y * pixelsX + x].join(',')})`;
+        currentPixelColor = this.tilePaletteChecker.RGBAtoInt(tileData[y * pixelsX + x]);
+        palettePosition = this.originalPalette.map(c => this.tilePaletteChecker.RGBAtoInt(c)).indexOf(currentPixelColor);
+        ctx.fillStyle = `rgba(${palette[palettePosition]})`;
+        // console.log(currentPixelColor, palettePosition, this.originalPalette, palette);
         ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+        if (isSelectedTile) {
+          this.selectedTileData.push(palette[palettePosition]);
+        }
       }
     }
   }
 
-  clearTile() {
-    this.shadowRoot.querySelector('#selected-tile-canvas').width = this.tileDisplayWidth;
+  createTempPalette() {
+    const tileColors = this.data.tileValidationData[this.selected].colors.sort().map(c => this.tilePaletteChecker.intToRGBAArray(c));
+    if (tileColors.length < 4) {
+      let i = tileColors.length;
+      const length = 4;
+      for(; i < length; i += 1) {
+        tileColors.push([i * 50, i * 50, i * 50, 1]);
+      }
+    }
+    return tileColors;
   }
 
-  onPaint() {
-    this.check();
-    this.drawTile();
+  drawPaletteVariations() {
+    this.clearTiles();
+
+    // draw current tile in selected spot
+    this.drawTile('#selected-tile-canvas', this.selectedPalette);
+
+    this.paletteTool.palettes.forEach((palette, i) => {
+      this.drawTile(`#palette-tile-canvas-${i}`, palette);
+    });
+  }
+
+  clearTiles() {
+    this.shadowRoot.querySelector('#selected-tile-canvas').width = this.tileDisplayWidth;
+    this.paletteTool.palettes.forEach((palette, i) => {
+      this.shadowRoot.querySelector(`#palette-tile-canvas-${i}`).width = this.tileDisplayWidth;
+    });
   }
 
   onPaletteChange(e) {
-    console.log('paletteChange');
     this.check();
-    this.drawTile();
+    this.selectedValidation = this.data.tileValidationData[this.selected];
+    this.drawPaletteVariations();
+  }
+
+  applyChanges(e) {
+    this.canvas.drawTile(this.selected, this.selectedTileData);
   }
 
   styles() {
@@ -253,6 +299,32 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
       .reason.success {
         color: #8aff39;
       }
+
+      .tile-spacer {
+        height: 80px;
+        margin-left: 24px;
+        margin-right: 24px;
+        border-left: 1px solid #444;
+      }
+
+      .palette-displays,
+      .palette-tile {
+        margin-right: 24px;
+        border: 2px solid rgba(0, 0, 0, 0);
+      }
+
+      .palette-tile:hover {
+        border: 2px solid rgb(0, 255, 48);
+        cursor: pointer;
+      }
+
+      .selected-display {
+        margin-right: 49px;
+      }
+
+      button {
+        cursor: pointer;
+      }
     `;
   }
 
@@ -263,8 +335,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
       <div class="row">
         <input id="validation-mode-checkbox" type="checkbox" ${this.validationModeChecked_ ? 'checked' : ''}>
         <label style="padding-right: 8px;">Tile validation mode</label>
-        <input id="enable-draw" type="checkbox" ${this.drawEnabled ? 'checked' : ''} >
-        <label>Enable draw</label>
 
 
         <span style="flex: 1"></span>
@@ -282,10 +352,20 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
               <div class="reason warn" style="${!valid ? '' : 'display: none;'}">${this.data.tileValidationData[this.selected].reason}</div>
               <div class="reason success" style="${valid ? '' : 'display: none;'}">Valid</div>
               <div class="row">
-                <palette-display></palette-display>
+                <palette-display class="selected-display"></palette-display>
+
+                ${this.paletteTool.palettes.map((palette, i) => html`
+                  <palette-display class="palette-displays"></palette-display>
+                `).join('\n')}
               </div>
               <div class="row">
                 <canvas id="selected-tile-canvas" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
+                <div class="tile-spacer"></div>
+                ${this.paletteTool.palettes.map((palette, i) => html`
+                  <canvas id="palette-tile-canvas-${i}" class="palette-tile" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
+                `).join('\n')}
+
+                <button id="apply-changes">Apply change</button>
               </div>
             `
           }

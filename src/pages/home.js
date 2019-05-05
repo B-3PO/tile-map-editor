@@ -8,7 +8,7 @@ module.exports = class Home extends Page {
     this.canvasWidth = 160;
     this.canvasHeight = 144;
     this.scale = 4;
-    this.diableEntry = true;
+    this.disableEntry = false;
   }
 
   connectedCallback() {
@@ -19,7 +19,7 @@ module.exports = class Home extends Page {
     this.canvas.tileWidth = 8;
     this.canvas.tileHeight = 8;
     this.bound_onCreate = this.onCreate.bind(this);
-    if (!this.diableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
+    if (!this.disableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
 
     this.tilePaletteValidator.canvas = this.canvas;
     this.tilePaletteValidator.paletteTool = this.paletteTool;
@@ -27,7 +27,7 @@ module.exports = class Home extends Page {
 
   disconnectedCallback() {
     this.paletteTool.removeEventListener('change', this.bound_paletteChange);
-    if (!this.diableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
+    if (!this.disableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
   }
 
   get title() {
@@ -109,9 +109,38 @@ module.exports = class Home extends Page {
     image.src = window.URL.createObjectURL(file);
   }
 
+  showSaveDialog() {
+    // document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
+    const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
+    const { hFile, cFile } = cl.process('test', 'Test');
+
+    console.log(hFile);
+    console.log(cFile);
+
+    // const linkpng = document.createElement('a');
+    // linkpng.download = 'test';
+    // linkpng.href = this.canvas.getDataURL('image/png');
+    // linkpng.click();
+    //
+    // const link = document.createElement('a');
+    // link.download = 'test.h';
+    // link.href = this.getDataBlob(hFile);
+    // link.click();
+    //
+    // const link2 = document.createElement('a');
+    // link2.download = 'test.c';
+    // link2.href = this.getDataBlob(cFile);
+    // link2.click();
+  }
+
+  getDataBlob(data, contentType = 'application/octet-stream') {
+    data = btoa(data);
+    return `data:${contentType};base64,${data}`;
+  }
+
   template() {
     return html`
-      ${!this.diableEntry ? '<entry-dialog></entry-dialog>' : ''}
+      ${!this.disableEntry ? '<entry-dialog></entry-dialog>' : ''}
 
       <div class="main-container">
         <div class="tool-bar">
@@ -127,7 +156,7 @@ module.exports = class Home extends Page {
             <img src="file-upload.svg" alt="image-upload">
           </label>
           <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
-          <div class="icon-button">save</div>
+          <div class="icon-button" onclick="$Home.showSaveDialog()">save</div>
         </div>
         <div class="canvas-container">
           <div class="canvas-plane">

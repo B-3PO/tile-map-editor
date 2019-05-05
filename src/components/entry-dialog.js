@@ -203,10 +203,10 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
               <label for="pixels-x">x</label>
-              <input name="pixels-x" type="number" value="160" >
+              <input name="pixels-x" type="number" value="8" >
               <span>px</span>
               <label for="pixels-x">y</label>
-              <input name="pixels-y" type="number" value="144" >
+              <input name="pixels-y" type="number" value="8" >
               <span>px</span>
             </div>
 

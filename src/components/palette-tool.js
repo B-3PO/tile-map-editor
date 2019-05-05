@@ -17,12 +17,28 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
     this.bound_clickColor = this.clickColor.bind(this);
     this.bound_onColorChange = this.onColorChange.bind(this);
+    this.addEvents();
+  }
+
+  disconnectedCallback() {
+    this.removeEvents();
+  }
+
+  beforeRender() {
+    this.removeEvents();
+  }
+
+  afterRender() {
+    this.addEvents();
+  }
+
+  addEvents() {
     this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
   }
 
-  disconnectedCallback() {
+  removeEvents() {
     this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickColor);
     this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
   }
@@ -116,8 +132,9 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     const step = 255 / this.colorCount;
     return [...new Array(this.colorCount)].map((_, i) => {
       const value = parseInt(step * i);
+      if (i === this.colorCount - 1) return [255, 255, 255, 1];
       return [value, value, value, 1];
-    });
+    }).reverse();
   }
 
   updatePalette(arr) {
