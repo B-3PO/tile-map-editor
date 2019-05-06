@@ -206,7 +206,7 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
               <input name="pixels-x" type="number" value="8" >
               <span>px</span>
               <label for="pixels-x">y</label>
-              <input name="pixels-y" type="number" value="8" >
+              <input name="pixels-y" type="number" value="16" >
               <span>px</span>
             </div>
 

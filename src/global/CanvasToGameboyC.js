@@ -22,7 +22,9 @@ module.exports = class CanvasToGameboyC {
     const tilePaletteArray = this.createTilePaletteArray();
     const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
     const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
-    return this.formatFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+    const dedupedTiles = this.dedupTiles(tileArray);
+    const flattenedTiles = dedupedTiles.reduce((a, b) => a.concat(b), []);
+    return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles);
   }
 
   createPaletteForFile() {
@@ -47,7 +49,8 @@ module.exports = class CanvasToGameboyC {
     const tilesY = pixelsY / tileHeight;
     const pixelsPerTile = tileWidth * tileHeight;
 
-    let arr = [];
+    // create empty nested array for all tiles
+    let arr = [...new Array(tileWidth * tileHeight)].map(() => []);
     let y = 0;
     let x;
     let z;
@@ -60,14 +63,52 @@ module.exports = class CanvasToGameboyC {
         tile = (y * tilesX) + x;
 
         // loop thorugh each row in tile
+        // here we are going to process each row and store it in sub tile array
         for(z = 0; z < tileHeight; z += 1) {
+          // get staring pixel for flat pixel data array
           startingPixel = tile * pixelsPerTile + (z * tileWidth);
-          arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+          arr[tile] = arr[tile].concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+          // arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
         }
       }
     }
 
     return arr;
+  }
+
+  dedupTiles(nestedTiles) {
+    let length = nestedTiles.length;
+    let i = 0;
+    let j;
+    let arr;
+
+    for(; i < length; i += 1) {
+      arr.push(nestedTiles[i]);
+
+      for(j = i + 1; j < length; j += 1) {
+        if (compareTiles(nestedTiles[i], nestedTiles[j])) {
+          // splice from array
+          nestedTiles.splice(j, 1);
+          length -= 1;
+        }
+      }
+    }
+
+    return nestedTiles;
+  }
+
+  compareTiles(one, two) {
+    const length = one.length;
+    let i = 0;
+    let j;
+
+    for(; i < length; i += 1) {
+      for(j = 0; j < length; j += 1) {
+        if (one[0] !== two[0]) return false;
+      }
+    }
+
+    return true
   }
 
   createTilePixelRow(pixels) {
