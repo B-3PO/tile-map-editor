@@ -80,13 +80,13 @@ module.exports = class CanvasToGameboyC {
     let length = nestedTiles.length;
     let i = 0;
     let j;
-    let arr;
+    let arr = [];
 
     for(; i < length; i += 1) {
       arr.push(nestedTiles[i]);
 
       for(j = i + 1; j < length; j += 1) {
-        if (compareTiles(nestedTiles[i], nestedTiles[j])) {
+        if (this.compareTiles(nestedTiles[i], nestedTiles[j])) {
           // splice from array
           nestedTiles.splice(j, 1);
           length -= 1;
