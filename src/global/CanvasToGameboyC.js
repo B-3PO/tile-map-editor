@@ -23,8 +23,9 @@ module.exports = class CanvasToGameboyC {
     const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
     const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
     const dedupedTiles = this.dedupTiles(tileArray);
-    const flattenedTiles = dedupedTiles.reduce((a, b) => a.concat(b), []);
-    return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles);
+    const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
+    const tileMap = this.createTileMap(dedupedTiles);
+    return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
   }
 
   createPaletteForFile() {
@@ -50,7 +51,7 @@ module.exports = class CanvasToGameboyC {
     const pixelsPerTile = tileWidth * tileHeight;
 
     // create empty nested array for all tiles
-    let arr = [...new Array(tileWidth * tileHeight)].map(() => []);
+    let arr = [...new Array(tilesX * tilesY)].map(() => []);
     let y = 0;
     let x;
     let z;
@@ -77,24 +78,38 @@ module.exports = class CanvasToGameboyC {
   }
 
   dedupTiles(nestedTiles) {
+    const indexedTiles = nestedTiles.map((a, i) => a.concat(i));
+    const mapping = indexedTiles.reduce((a, b, i) => {
+      a[i] = b[b.length-1];
+      return a;
+    }, {});
     let length = nestedTiles.length;
     let i = 0;
     let j;
     let arr = [];
 
     for(; i < length; i += 1) {
-      arr.push(nestedTiles[i]);
+      arr.push(indexedTiles[i]);
 
-      for(j = i + 1; j < length; j += 1) {
-        if (this.compareTiles(nestedTiles[i], nestedTiles[j])) {
+      for (j = i + 1; j < length; j += 1) {
+        if (this.compareTiles(indexedTiles[i], indexedTiles[j])) {
+
+          // create mapping of what tiles go where
+          mapping[indexedTiles[j][16]] = i;
+
           // splice from array
-          nestedTiles.splice(j, 1);
+          indexedTiles.splice(j, 1);
           length -= 1;
         }
       }
     }
 
-    return nestedTiles;
+    arr.forEach(a => a.pop());
+
+    return {
+      tiles: arr,
+      mapping
+    };
   }
 
   compareTiles(one, two) {
@@ -130,6 +145,10 @@ module.exports = class CanvasToGameboyC {
     return [`0x${('00' + lbits.toString(16)).slice(-2).toUpperCase()}`, `0x${('00' + hbits.toString(16)).slice(-2).toUpperCase()}`];
   }
 
+  createTileMap({ mapping }) {
+    return Object.keys(mapping).reduce((a, key) => a.concat(`0x${('00' + mapping[key].toString(16)).slice(-2).toUpperCase()}`), []);
+  }
+
   convertToRGBInt(rgba) {
     return (rgba[0] >> 3) | ((rgba[1] >> 3) << 5) | ((rgba[2] >> 3) << 10);
   }
@@ -148,11 +167,12 @@ module.exports = class CanvasToGameboyC {
     return palette.indexOf(cint);
   }
 
-  formatFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+  formatFile(fileName, varName, palettes, tilePaletteArray, tileArray, tileMap) {
     const hFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
     const cFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-
-    return { hFile, cFile };
+    const hMapFile = this.formatHMapFile(fileName, varName, tileMap);
+    const cMapFile = this.formatCMapFile(fileName, varName, tileMap);
+    return { hFile, cFile, hMapFile, cMapFile };
   }
 
   formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
@@ -194,6 +214,31 @@ module.exports = class CanvasToGameboyC {
 
       /* Start of tile array. */
       extern unsigned char ${varName}[];
+      `}
+    `;
+  }
+
+  formatCMapFile(fileName, varName, mapping) {
+    const tileCount = mapping.length;
+    return stripIndents`
+      ${this.getComentBlock(`${fileName}Map`, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+
+      ${stripIndents`
+      /* map array. */
+      unsigned char ${varName}Map[${mapping.length}] = {
+        ${mapping.join(',')}
+      };
+      `}
+    `;
+  }
+
+  formatHMapFile(fileName, varName, mapping) {
+    return stripIndents`
+      ${this.getComentBlock(`${fileName}Map`, mapping.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+
+      ${stripIndents`
+      /* map array. */
+      extern unsigned char ${varName}Map[];
       `}
     `;
   }

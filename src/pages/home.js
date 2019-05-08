@@ -112,10 +112,13 @@ module.exports = class Home extends Page {
   showSaveDialog() {
     // document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
     const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-    const { hFile, cFile } = cl.process('test', 'Test');
+    const { hFile, cFile, hMapFile, cMapFile } = cl.process('test', 'Test');
 
     console.log(hFile);
     console.log(cFile);
+
+    console.log(hMapFile);
+    console.log(cMapFile);
 
     // const linkpng = document.createElement('a');
     // linkpng.download = 'test';
