@@ -9,6 +9,8 @@ const Utils = require('../global/utils');
 customElements.define('palette-tool', class extends HTMLElementExtended {
   constructor() {
     super();
+    this.leftColor_ = '#000000';
+    this.rightColor_ = '#FFFFFF';
     this.cloneTemplate();
     this.selectedPalette = 0;
   }
@@ -17,6 +19,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
     this.bound_clickColor = this.clickColor.bind(this);
     this.bound_onColorChange = this.onColorChange.bind(this);
+    this.bound_onPaletteClick = this.onPaletteClick.bind(this);
+    this.bound_onContextMenu = this.onContextMenu.bind(this);
     this.addEvents();
   }
 
@@ -36,11 +40,15 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
+    this.shadowRoot.querySelector('#palettes').addEventListener('contextmenu', this.bound_onContextMenu);
+    this.shadowRoot.querySelector('#palettes').addEventListener('click', this.bound_onPaletteClick);
   }
 
   removeEvents() {
     this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickColor);
     this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
+    this.shadowRoot.querySelector('#palettes').removeEventListener('contextmenu', this.bound_onContextMenu);
+    this.shadowRoot.querySelector('#palettes').removeEventListener('click', this.bound_onPaletteClick);
   }
 
   static get observedAttributes() {
@@ -124,6 +132,25 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.selectedPalette_ = value;
   }
 
+
+  get leftColor() {
+    return this.leftColor_;
+  }
+
+  set leftColor(value) {
+    this.leftColor_ = value;
+    this.shadowRoot.querySelector('#left-color').style.backgroundColor = value;
+  }
+
+  get rightColor() {
+    return this.rightColor_;
+  }
+
+  set rightColor(value) {
+    this.rightColor_ = value;
+    this.shadowRoot.querySelector('#right-color').style.backgroundColor = value;
+  }
+
   isEdit() {
     return this.shadowRoot.querySelector('input[name="edit"]').checked;
   }
@@ -143,6 +170,20 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
       const defaults = this.generateDefaultPalette();
       [...new Array(this.colorCount - arr.length)].forEach((_, i) => arr.push(defaults[(arr.length - 1) + i]));
     }
+  }
+
+  onContextMenu(e) {
+    e.preventDefault();
+    this.clickColor(e);
+    setTimeout(() => {
+      this.rightColor = this.convertArrToRBGA(this.selectedColor);
+    }, 0);
+  }
+
+  onPaletteClick(e) {
+    setTimeout(() => {
+      if (e.which === 1) this.leftColor = this.convertArrToRBGA(this.selectedColor);
+    }, 0);
   }
 
   clickColor(e) {
@@ -268,6 +309,17 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
         margin-left: 8px;
         margin-right: 12px;
       }
+
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+
+      .color-block {
+        flex: 1;
+        height: 24px;
+        margin: 8px 5px;
+      }
     `;
   }
 
@@ -279,6 +331,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
           <input type="checkbox" name="edit">
           <label class="edit-label" for="edit">Edit</label>
         </div>
+
+        <div id="palettes">
         ${[...new Array(this.count)].map((_, i) => `
           ${i !== 0 ? '<div class="divider"></div>' : ''}
           <div class="palette">
@@ -289,9 +343,14 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
           </div>
 
         `).join('\n')}
+        </div>
 
         <div class="spacer"></div>
         <color-picker></color-picker>
+        <div class="row">
+          <div id="left-color" class="color-block" style="background-color: ${this.leftColor};"></div>
+          <div id="right-color" class="color-block" style="background-color: ${this.rightColor};"></div>
+        </div>
       </div>
     `;
   }

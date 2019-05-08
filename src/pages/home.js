@@ -110,35 +110,10 @@ module.exports = class Home extends Page {
   }
 
   showSaveDialog() {
-    // document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
-    const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-    const { hFile, cFile, hMapFile, cMapFile } = cl.process('test', 'Test');
-
-    console.log(hFile);
-    console.log(cFile);
-
-    console.log(hMapFile);
-    console.log(cMapFile);
-
-    // const linkpng = document.createElement('a');
-    // linkpng.download = 'test';
-    // linkpng.href = this.canvas.getDataURL('image/png');
-    // linkpng.click();
-    //
-    // const link = document.createElement('a');
-    // link.download = 'test.h';
-    // link.href = this.getDataBlob(hFile);
-    // link.click();
-    //
-    // const link2 = document.createElement('a');
-    // link2.download = 'test.c';
-    // link2.href = this.getDataBlob(cFile);
-    // link2.click();
-  }
-
-  getDataBlob(data, contentType = 'application/octet-stream') {
-    data = btoa(data);
-    return `data:${contentType};base64,${data}`;
+    document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
+    const el = document.querySelector('save-dialog');
+    el.canvas = this.canvas;
+    el.paletteTool = this.paletteTool;
   }
 
   template() {

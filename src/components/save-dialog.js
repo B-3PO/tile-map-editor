@@ -4,6 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
+const CanvasToGameboyC = require('../global/CanvasToGameboyC');
 
 customElements.define('save-dialog', class extends HTMLElementExtended {
   constructor() {
@@ -24,16 +25,35 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
     return this.shadowRoot.querySelector('#save-button');
   }
 
-  get imageType() {
-    return this.shadowRoot.querySelector('select[name="imageType"]').value;
+  get filetype() {
+    return this.shadowRoot.querySelector('select[name="filetype"]').value;
   }
 
   get extension() {
-    return this.imageType.split('/')[1].toLowerCase();
+    return this.filetype && this.filetype.split('/')[1].toLowerCase();
   }
 
   get fileName() {
     return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}.${this.extension}`;
+  }
+
+  get canvas() {
+    return this.canvas_;
+  }
+  set canvas(value) {
+    this.canvas_ = value;
+  }
+
+  get paletteTool() {
+    return this.paletteTool_;
+  }
+  set paletteTool(value) {
+    this.paletteTool_ = value;
+  }
+
+  getDataBlob(data, contentType = 'application/octet-stream') {
+    data = btoa(data);
+    return `data:${contentType};base64,${data}`;
   }
 
   save() {
@@ -41,17 +61,43 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
     this.dispatchEvent(new CustomEvent('save', {
       detail: {
         fileName: this.fileName,
-        imageType: this.imageType
+        filetype: this.filetype
       }
     }));
     this.remove();
   }
 
   downloadFile() {
-    const link = document.createElement('a');
-    link.download = this.fileName;
-    link.href = document.querySelector('draw-canvas').getDataURL(this.imageType);
-    link.click();
+    if (['imge/gif', 'image/jpg', 'image/png'].includes(this.filetype)) {
+      const link = document.createElement('a');
+      link.download = this.fileName;
+      link.href = document.querySelector('draw-canvas').getDataURL(this.filetype);
+      link.click();
+
+    } else {
+      const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
+      const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName);
+
+      const link = document.createElement('a');
+      link.download = `${this.fileName}.h`;
+      link.href = this.getDataBlob(hFile);
+      link.click();
+
+      const link2 = document.createElement('a');
+      link2.download = `${this.fileName}.c`;
+      link2.href = this.getDataBlob(cFile);
+      link2.click();
+
+      const link3 = document.createElement('a');
+      link3.download = `${this.fileName}Map.h`;
+      link3.href = this.getDataBlob(hMapFile);
+      link3.click();
+
+      const link4 = document.createElement('a');
+      link4.download = `${this.fileName}Map.c`;
+      link4.href = this.getDataBlob(cMapFile);
+      link4.click();
+    }
   }
 
   styles() {
@@ -156,8 +202,9 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
           <br/>
 
           <label for="imageType">Image type: </label>
-          <select name="imageType">
-            <option selected value="image/png">PNG</option>
+          <select name="filetype">
+            <option selected value="">GBDK (c, h)</option>
+            <option value="image/png">PNG</option>
             <option value="image/jpg">JPG</option>
             <option value="image/gif">GIF</option>
           </select>
