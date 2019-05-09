@@ -792,6 +792,18 @@
           return [...values.slice(0, 3).map(v => v * multiplier), 1];
         }
       
+        // set color(arr) {
+        //   this.pickerColor = `rgba(${arr.join(',')})`;
+        //
+        //   // const x = this.pickerX - this.colorStripWidth;
+        //   // const y = this.pickerY;
+        //   // this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(x, y, 1, 1).data].slice(0, 3).join(',')},1)`;
+        //   // if (x === 0 && y === 0) this.pickerColor = 'rgba(255,255,255,0)';
+        //   this.picker.style.backgroundColor = this.pickerColor;
+        //   this.setRGBInputs();
+        //   this.handleChange();
+        // }
+      
         get maxRGBRange() {
           return this.maxRGBRange_ || 255;
         }
@@ -1155,9 +1167,14 @@
       }
       
       .title {
-        margin-left: 32px;
         font-size: 18px;
         font-weight: 400;
+        padding-left: 6px;
+        flex: 1;
+      }
+      
+      .subtitle {
+        font-size: 14px;
         padding-left: 6px;
         flex: 1;
       }
@@ -1184,6 +1201,20 @@
         height: 24px;
         margin: 8px 5px;
       }
+      
+      .settings {
+        margin: 18px 0;
+      }
+      
+      .settings .sub {
+        margin-top: 6px;
+        margin-left: 12px;
+      }
+      
+      .setting-input {
+        width: 40px;
+        margin-right: 22px;
+      }
           </style>
           <render-block>
             <div class="palette-container">
@@ -1191,6 +1222,17 @@
           <div class="title">Palettes</div>
           <input type="checkbox" name="edit" >
           <label class="edit-label" for="edit">Edit</label>
+        </div>
+      
+        <div class="settings">
+          <div class="subtitle">Settings</div>
+      
+          <div class="sub">
+            <label class="edit-label" for="count">Count</label>
+            <input name="count" class="setting-input" value="1">
+            <label class="edit-label" for="colorCount">Color count</label>
+            <input name="colorCount" class="setting-input" value="4">
+          </div>
         </div>
       
         <div id="palettes">
@@ -1247,6 +1289,7 @@
           this.bound_onColorChange = this.onColorChange.bind(this);
           this.bound_onContextMenu = this.onContextMenu.bind(this);
           this.bound_onEditCheck = this.onEditCheck.bind(this);
+          this.bound_onSettingsChange = this.onSettingsChange.bind(this);
           this.addEvents();
         }
       
@@ -1268,6 +1311,8 @@
           this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
           this.shadowRoot.querySelector('#palettes').addEventListener('contextmenu', this.bound_onContextMenu);
           this.shadowRoot.querySelector('input[type=checkbox]').addEventListener('change', this.bound_onEditCheck);
+          this.shadowRoot.querySelector('input[name=count]').addEventListener('change', this.bound_onSettingsChange);
+          this.shadowRoot.querySelector('input[name=colorCount]').addEventListener('change', this.bound_onSettingsChange);
         }
       
         removeEvents() {
@@ -1276,6 +1321,8 @@
           this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
           this.shadowRoot.querySelector('#palettes').removeEventListener('contextmenu', this.bound_onContextMenu);
           this.shadowRoot.querySelector('input[type=checkbox]').removeEventListener('change', this.bound_onEditCheck);
+          this.shadowRoot.querySelector('input[name=count]').removeEventListener('change', this.bound_onSettingsChange);
+          this.shadowRoot.querySelector('input[name=colorCount]').removeEventListener('change', this.bound_onSettingsChange);
         }
       
         static get observedAttributes() {
@@ -1341,6 +1388,10 @@
           return this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
         }
       
+        set color(colorArr) {
+          this.updateSelected(colorArr);
+        }
+      
         get rawColor() {
           return this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]];
         }
@@ -1359,6 +1410,11 @@
       
         set isEdit(value) {
           this.isEdit_ = value;
+        }
+      
+        onSettingsChange() {
+          this.count = this.shadowRoot.querySelector('input[name=count]').value;
+          this.colorCount = this.shadowRoot.querySelector('input[name=colorCount]').value;
         }
       
         onEditCheck(e) {
@@ -1525,9 +1581,14 @@
             }
       
             .title {
-              margin-left: 32px;
               font-size: 18px;
               font-weight: 400;
+              padding-left: 6px;
+              flex: 1;
+            }
+      
+            .subtitle {
+              font-size: 14px;
               padding-left: 6px;
               flex: 1;
             }
@@ -1554,6 +1615,20 @@
               height: 24px;
               margin: 8px 5px;
             }
+      
+            .settings {
+              margin: 18px 0;
+            }
+      
+            .settings .sub {
+              margin-top: 6px;
+              margin-left: 12px;
+            }
+      
+            .setting-input {
+              width: 40px;
+              margin-right: 22px;
+            }
           `;
         }
       
@@ -1564,6 +1639,17 @@
                 <div class="title">Palettes</div>
                 <input type="checkbox" name="edit" ${this.isEdit ? 'checked' : ''}>
                 <label class="edit-label" for="edit">Edit</label>
+              </div>
+      
+              <div class="settings">
+                <div class="subtitle">Settings</div>
+      
+                <div class="sub">
+                  <label class="edit-label" for="count">Count</label>
+                  <input name="count" class="setting-input" value="${this.count}">
+                  <label class="edit-label" for="colorCount">Color count</label>
+                  <input name="colorCount" class="setting-input" value="${this.colorCount}">
+                </div>
               </div>
       
               <div id="palettes">
@@ -1685,6 +1771,7 @@
           this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
           this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
           this.color_ = [0, 0, 0, 1];
+          this.tool = 'pencil';
       
           this.cloneTemplate();
         }
@@ -1921,10 +2008,17 @@
         mouseDown(e) {
           // block right click
           this.isMouseDown = true;
-          // right
-          if (e.which !== 1) this.fillPixel(e.clientX, e.clientY, this.altColor);
-          // left
-          else this.fillPixel(e.clientX, e.clientY, this.color);
+      
+          if (this.tool === 'pencil') {
+            // right
+            if (e.which !== 1) this.fillPixel(e.clientX, e.clientY, this.altColor);
+            // left
+            else this.fillPixel(e.clientX, e.clientY, this.color);
+          }
+      
+          if (this.tool === 'colorPicker') {
+            this.dispatchColorPick(this.getPixelColor(e.clientX, e.clientY, 1, 1));
+          }
         }
       
         mouseUp(e) {
@@ -1946,7 +2040,20 @@
         }
       
         mouseEnter(e) {
-          this.drawMainCursor();
+          switch (this.tool) {
+            case 'pencil':
+              this.drawMainCursor();
+              break;
+      
+            case 'colorPicker':
+              this.drawColorPickerCursor();
+              break;
+      
+            case 'tileValidation':
+              // this.drawTileValidation();
+              break;
+          }
+      
           this.isMouseDown = false;
         }
       
@@ -1956,9 +2063,12 @@
       
         mouseMove(e) {
           const bounds = this.getBoundingClientRect();
-          if (this.isMouseDown) this.fillPixel(e.clientX, e.clientY);
           let [x, y] = this.snapToPixel(e.clientX - bounds.left, e.clientY - bounds.top);
           this.moveCursor(x, y);
+      
+          if (this.isMouseDown) {
+            if (this.tool === 'pencil') this.fillPixel(e.clientX, e.clientY);
+          }
         }
       
       
@@ -1975,6 +2085,20 @@
           this.cursor.style.height = `${this.scale}px`;
           this.cursor.style.backgroundColor = this.color;
           this.cursor.style.border = '1px solid #DDD';
+        }
+      
+        drawPencilCursor() {
+          this.drawMainCursor();
+        }
+      
+        drawColorPickerCursor() {
+          this.cursor.style.backgroundColor = null;
+          this.cursor.style.background = 'url(eyedropper.svg)';
+          this.cursor.style.backgroundRepeat = 'no-repeat';
+          this.cursor.style.backgroundSize = '12px 12px';
+          this.cursor.style.width = '12px';
+          this.cursor.style.height = '12px';
+          this.cursor.style.marginTop = '-8px';
         }
       
         drawTileValidationCursor() {
@@ -2016,6 +2140,17 @@
           const ctx = this.backgroundContext;
           ctx.fillStyle = color;
           ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
+        }
+      
+        getPixelColor(x, y, width, height) {
+          const bounds = this.getBoundingClientRect();
+          x -= bounds.left;
+          y -= bounds.top;
+          const [x2, y2] = this.snapToPixel(x, y);
+          x = x2;
+          y = y2;
+      
+          return this.backgroundContext.getImageData(x, y, width, height).data;
         }
       
         snapToPixel(x, y) {
@@ -2164,6 +2299,7 @@
             this.showTileValidation_ = true;
             this.drawTileValidation();
             this.enableTileValidationEvents();
+            this.tool = 'tileValidation';
           } else {
             console.warn('cannot show validation because "tileValidation" data was not set');
           }
@@ -2176,6 +2312,7 @@
           this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = 'none';
           this.drawMainCursor();
           this.addBackgroundEvents();
+          this.tool = 'pencil';
         }
       
         drawTileValidation() {
@@ -2306,6 +2443,34 @@
       
         getDataURL(type) {
           return this.backgroundCanvas.toDataURL(type);
+        }
+      
+      
+      
+      
+      
+      
+      
+        // --- Tools ---------------------------
+      
+        pencil() {
+          this.clearCursor();
+          this.drawPencilCursor();
+          this.tool = 'pencil';
+        }
+      
+        colorPicker() {
+          this.clearCursor();
+          this.drawColorPickerCursor();
+          this.tool = 'colorPicker';
+        }
+      
+        dispatchColorPick(colorArr) {
+          this.dispatchEvent(new CustomEvent('colorPicked', {
+            detail: {
+              color: colorArr
+            }
+          }));
         }
       
         styles() {
@@ -4036,6 +4201,8 @@
       
         downloadFile() {
           if (['imge/gif', 'image/jpg', 'image/png'].includes(this.filetype)) {
+            // NOTE https://github.com/mattburns/exiftool.js/
+      
             const link = document.createElement('a');
             link.download = this.fileName;
             link.href = document.querySelector('draw-canvas').getDataURL(this.filetype);
@@ -4584,7 +4751,10 @@
           this.canvas.tileWidth = 8;
           this.canvas.tileHeight = 8;
           this.bound_onCreate = this.onCreate.bind(this);
+          this.bound_onColorPick = this.onColorPick.bind(this);
           if (!this.disableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
+      
+          this.canvas.addEventListener('colorPicked', this.bound_onColorPick);
       
           this.tilePaletteValidator.canvas = this.canvas;
           this.tilePaletteValidator.paletteTool = this.paletteTool;
@@ -4593,6 +4763,7 @@
         disconnectedCallback() {
           this.paletteTool.removeEventListener('change', this.bound_paletteChange);
           if (!this.disableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
+          this.canvas.removeEventListener('colorPicked', this.bound_onColorPick);
         }
       
         get title() {
@@ -4677,14 +4848,26 @@
           // el.paletteTool = this.paletteTool;
         }
       
+        pencilTool() {
+          this.canvas.pencil();
+        }
+      
+        colorPickerTool() {
+          this.canvas.colorPicker();
+        }
+      
+        onColorPick(e) {
+          this.paletteTool.color = e.detail.color;
+        }
+      
         template() {
           return html`
             ${!this.disableEntry ? '<entry-dialog></entry-dialog>' : ''}
       
             <div class="main-container">
               <div class="tool-bar">
-                <div class="icon-button">edit</div>
-                <div class="icon-button-svg">
+                <div class="icon-button" onclick="$Home.pencilTool();">edit</div>
+                <div class="icon-button-svg" onclick="$Home.colorPickerTool();">
                   <img src="eyedropper.svg" alt="color-picker">
                 </div>
                 <div class="icon-button-svg">
@@ -4742,8 +4925,8 @@
       
       <div class="main-container">
         <div class="tool-bar">
-          <div class="icon-button">edit</div>
-          <div class="icon-button-svg">
+          <div class="icon-button" onclick="$Home.pencilTool();">edit</div>
+          <div class="icon-button-svg" onclick="$Home.colorPickerTool();">
             <img src="eyedropper.svg" alt="color-picker">
           </div>
           <div class="icon-button-svg">

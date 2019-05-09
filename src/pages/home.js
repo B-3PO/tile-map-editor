@@ -20,7 +20,10 @@ module.exports = class Home extends Page {
     this.canvas.tileWidth = 8;
     this.canvas.tileHeight = 8;
     this.bound_onCreate = this.onCreate.bind(this);
+    this.bound_onColorPick = this.onColorPick.bind(this);
     if (!this.disableEntry) this.entryDialog.addEventListener('create', this.bound_onCreate);
+
+    this.canvas.addEventListener('colorPicked', this.bound_onColorPick);
 
     this.tilePaletteValidator.canvas = this.canvas;
     this.tilePaletteValidator.paletteTool = this.paletteTool;
@@ -29,6 +32,7 @@ module.exports = class Home extends Page {
   disconnectedCallback() {
     this.paletteTool.removeEventListener('change', this.bound_paletteChange);
     if (!this.disableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
+    this.canvas.removeEventListener('colorPicked', this.bound_onColorPick);
   }
 
   get title() {
@@ -113,14 +117,26 @@ module.exports = class Home extends Page {
     // el.paletteTool = this.paletteTool;
   }
 
+  pencilTool() {
+    this.canvas.pencil();
+  }
+
+  colorPickerTool() {
+    this.canvas.colorPicker();
+  }
+
+  onColorPick(e) {
+    this.paletteTool.color = e.detail.color;
+  }
+
   template() {
     return html`
       ${!this.disableEntry ? '<entry-dialog></entry-dialog>' : ''}
 
       <div class="main-container">
         <div class="tool-bar">
-          <div class="icon-button">edit</div>
-          <div class="icon-button-svg">
+          <div class="icon-button" onclick="$Home.pencilTool();">edit</div>
+          <div class="icon-button-svg" onclick="$Home.colorPickerTool();">
             <img src="eyedropper.svg" alt="color-picker">
           </div>
           <div class="icon-button-svg">

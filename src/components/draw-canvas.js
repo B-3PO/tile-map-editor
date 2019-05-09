@@ -17,6 +17,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.canvasHeight = this.hasAttribute('height') ? parseInt(this.getAttribute('height')) : 144;
     this.scale_ = this.hasAttribute('scale') ? parseInt(this.getAttribute('scale')) : 4;
     this.color_ = [0, 0, 0, 1];
+    this.tool = 'pencil';
 
     this.cloneTemplate();
   }
@@ -252,10 +253,17 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   mouseDown(e) {
     // block right click
     this.isMouseDown = true;
-    // right
-    if (e.which !== 1) this.fillPixel(e.clientX, e.clientY, this.altColor);
-    // left
-    else this.fillPixel(e.clientX, e.clientY, this.color);
+
+    if (this.tool === 'pencil') {
+      // right
+      if (e.which !== 1) this.fillPixel(e.clientX, e.clientY, this.altColor);
+      // left
+      else this.fillPixel(e.clientX, e.clientY, this.color);
+    }
+
+    if (this.tool === 'colorPicker') {
+      this.dispatchColorPick(this.getPixelColor(e.clientX, e.clientY, 1, 1));
+    }
   }
 
   mouseUp(e) {
@@ -277,7 +285,20 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   mouseEnter(e) {
-    this.drawMainCursor();
+    switch (this.tool) {
+      case 'pencil':
+        this.drawMainCursor();
+        break;
+
+      case 'colorPicker':
+        this.drawColorPickerCursor();
+        break;
+
+      case 'tileValidation':
+        // this.drawTileValidation();
+        break;
+    }
+
     this.isMouseDown = false;
   }
 
@@ -287,9 +308,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   mouseMove(e) {
     const bounds = this.getBoundingClientRect();
-    if (this.isMouseDown) this.fillPixel(e.clientX, e.clientY);
     let [x, y] = this.snapToPixel(e.clientX - bounds.left, e.clientY - bounds.top);
     this.moveCursor(x, y);
+
+    if (this.isMouseDown) {
+      if (this.tool === 'pencil') this.fillPixel(e.clientX, e.clientY);
+    }
   }
 
 
@@ -306,6 +330,20 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.cursor.style.height = `${this.scale}px`;
     this.cursor.style.backgroundColor = this.color;
     this.cursor.style.border = '1px solid #DDD';
+  }
+
+  drawPencilCursor() {
+    this.drawMainCursor();
+  }
+
+  drawColorPickerCursor() {
+    this.cursor.style.backgroundColor = null;
+    this.cursor.style.background = 'url(eyedropper.svg)';
+    this.cursor.style.backgroundRepeat = 'no-repeat';
+    this.cursor.style.backgroundSize = '12px 12px';
+    this.cursor.style.width = '12px';
+    this.cursor.style.height = '12px';
+    this.cursor.style.marginTop = '-8px';
   }
 
   drawTileValidationCursor() {
@@ -347,6 +385,17 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const ctx = this.backgroundContext;
     ctx.fillStyle = color;
     ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
+  }
+
+  getPixelColor(x, y, width, height) {
+    const bounds = this.getBoundingClientRect();
+    x -= bounds.left;
+    y -= bounds.top;
+    const [x2, y2] = this.snapToPixel(x, y);
+    x = x2;
+    y = y2;
+
+    return this.backgroundContext.getImageData(x, y, width, height).data;
   }
 
   snapToPixel(x, y) {
@@ -495,6 +544,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       this.showTileValidation_ = true;
       this.drawTileValidation();
       this.enableTileValidationEvents();
+      this.tool = 'tileValidation';
     } else {
       console.warn('cannot show validation because "tileValidation" data was not set');
     }
@@ -507,6 +557,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('#tile-validation-canvas').style.pointerEvents = 'none';
     this.drawMainCursor();
     this.addBackgroundEvents();
+    this.tool = 'pencil';
   }
 
   drawTileValidation() {
@@ -637,6 +688,34 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
   getDataURL(type) {
     return this.backgroundCanvas.toDataURL(type);
+  }
+
+
+
+
+
+
+
+  // --- Tools ---------------------------
+
+  pencil() {
+    this.clearCursor();
+    this.drawPencilCursor();
+    this.tool = 'pencil';
+  }
+
+  colorPicker() {
+    this.clearCursor();
+    this.drawColorPickerCursor();
+    this.tool = 'colorPicker';
+  }
+
+  dispatchColorPick(colorArr) {
+    this.dispatchEvent(new CustomEvent('colorPicked', {
+      detail: {
+        color: colorArr
+      }
+    }));
   }
 
   styles() {

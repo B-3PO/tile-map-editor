@@ -122,6 +122,10 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     return this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
   }
 
+  set color(colorArr) {
+    this.updateSelected(colorArr);
+  }
+
   get rawColor() {
     return this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]];
   }
