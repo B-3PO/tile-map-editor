@@ -9,18 +9,20 @@ const Utils = require('../global/utils');
 customElements.define('palette-tool', class extends HTMLElementExtended {
   constructor() {
     super();
-    this.leftColor_ = '#000000';
-    this.rightColor_ = '#FFFFFF';
+
+    this.selectedColorLocation = [0, 3];
+    this.selectedAltColorLocation = [0, 0];
+
     this.cloneTemplate();
-    this.selectedPalette = 0;
   }
 
   connectedCallback() {
     this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
-    this.bound_clickColor = this.clickColor.bind(this);
+    this.bound_clickPaletteColor = this.clickPaletteColor.bind(this);
+    this.bound_rightClickPaletteColor = this.rightClickPaletteColor.bind(this);
     this.bound_onColorChange = this.onColorChange.bind(this);
-    this.bound_onPaletteClick = this.onPaletteClick.bind(this);
     this.bound_onContextMenu = this.onContextMenu.bind(this);
+    this.bound_onEditCheck = this.onEditCheck.bind(this);
     this.addEvents();
   }
 
@@ -37,18 +39,19 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   addEvents() {
-    this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
-    this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
+    this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickPaletteColor);
+    this.shadowRoot.querySelector('.palette-container').addEventListener('contextmenu', this.bound_rightClickPaletteColor);
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('#palettes').addEventListener('contextmenu', this.bound_onContextMenu);
-    this.shadowRoot.querySelector('#palettes').addEventListener('click', this.bound_onPaletteClick);
+    this.shadowRoot.querySelector('input[type=checkbox]').addEventListener('change', this.bound_onEditCheck);
   }
 
   removeEvents() {
-    this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickColor);
+    this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickPaletteColor);
+    this.shadowRoot.querySelector('.palette-container').removeEventListener('contextmenu', this.bound_rightClickPaletteColor);
     this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('#palettes').removeEventListener('contextmenu', this.bound_onContextMenu);
-    this.shadowRoot.querySelector('#palettes').removeEventListener('click', this.bound_onPaletteClick);
+    this.shadowRoot.querySelector('input[type=checkbox]').removeEventListener('change', this.bound_onEditCheck);
   }
 
   static get observedAttributes() {
@@ -58,6 +61,14 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   attributeChangedCallback(name, _, newValue) {
     if (name === 'count') this.count = newValue;
     if (name === 'color-count') this.colorCount = newValue;
+  }
+
+  get selectedColorElement() {
+    return this.shadowRoot.querySelector('.color.selected');
+  }
+
+  get selectedAltColorElement() {
+    return this.shadowRoot.querySelector('.color.selected-alt');
   }
 
   get count() {
@@ -98,61 +109,36 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     return this.palettes_;
   }
 
-  get selected() {
-    return this.selected_;
-  }
-
-  set selected(value) {
-    if (!value.classList.contains('color')) throw Error('requires color element');
-    this.selected_ = value;
-  }
-
-  get selectedColor() {
-    if (!this.selected) return null;
-    const location = this.selectedLocation;
-    return this.palettes[location[0]][location[1]];
-  }
-
-  get selectedLocation() {
-    if (!this.selected) return null;
-    return this.selected.getAttribute('location').split('-');
-  }
-
   get colorPicker() {
     return this.shadowRoot.querySelector('color-picker');
   }
 
-  get selectedPalette() {
-    return this.selectedPalette_;
+  get color() {
+    return this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
   }
 
-  set selectedPalette(value) {
-    value = parseInt(value);
-    if (value > this.count) value = this.count;
-    this.selectedPalette_ = value;
+  get rawColor() {
+    return this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]];
   }
 
-
-  get leftColor() {
-    return this.leftColor_;
+  get altColor() {
+    return this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]]);
   }
 
-  set leftColor(value) {
-    this.leftColor_ = value;
-    this.shadowRoot.querySelector('#left-color').style.backgroundColor = value;
+  get rawAltColor() {
+    return this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]];
   }
 
-  get rightColor() {
-    return this.rightColor_;
+  get isEdit() {
+    return this.isEdit_ || false;
   }
 
-  set rightColor(value) {
-    this.rightColor_ = value;
-    this.shadowRoot.querySelector('#right-color').style.backgroundColor = value;
+  set isEdit(value) {
+    this.isEdit_ = value;
   }
 
-  isEdit() {
-    return this.shadowRoot.querySelector('input[name="edit"]').checked;
+  onEditCheck(e) {
+    this.isEdit = this.shadowRoot.querySelector('input[name="edit"]').checked;
   }
 
   generateDefaultPalette() {
@@ -172,62 +158,81 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     }
   }
 
-  onContextMenu(e) {
-    e.preventDefault();
-    this.clickColor(e);
-    setTimeout(() => {
-      this.rightColor = this.convertArrToRBGA(this.selectedColor);
-    }, 0);
+  convertArrToRBGA(arr) {
+    return `rgba(${arr.join(',')})`;
   }
 
-  onPaletteClick(e) {
-    setTimeout(() => {
-      if (e.which === 1) this.leftColor = this.convertArrToRBGA(this.selectedColor);
-    }, 0);
-  }
-
-  clickColor(e) {
-    this.selectPalette(e);
+  // select color
+  clickPaletteColor(e) {
+    // not clickomng on color block
     if (!e.target.classList.contains('color')) {
-      this.dispatchChange();
+      // NOTE is this needed
+      // this.dispatchChange();
       return;
     }
 
-    if (this.selected) this.selected.classList.remove('selected');
-    this.selected = e.target;
-    this.selected.classList.add('selected');
+    // clear last selected color inside palette
+    if (this.selectedColorElement) this.selectedColorElement.classList.remove('selected');
+
+    // select new palette color
+    e.target.classList.add('selected');
+    this.selectedColorLocation = this.selectedColorElement.getAttribute('id').split(':').map(n => parseInt(n));
+    this.render();
+    this.dispatchChange();
+  }
+
+  // select alt color
+  rightClickPaletteColor(e) {
+    e.preventDefault();
+
+    // not clickomng on color block
+    if (!e.target.classList.contains('color')) {
+      // NOTE is this needed
+      // this.dispatchChange();
+      return;
+    }
+
+    // clear last selected color inside palette
+    if (this.selectedAltColorElement) this.selectedAltColorElement.classList.remove('selected-alt');
+
+    // select new palette color
+    e.target.classList.add('selected-alt');
+    this.selectedAltColorLocation = this.selectedAltColorElement.getAttribute('id').split(':').map(n => parseInt(n));
+    this.render();
     this.dispatchChange();
   }
 
   onColorChange(e) {
-    if (this.isEdit()) this.updateSelected(e.detail.color);
+    if (this.isEdit) this.updateSelected(e.detail.color);
     this.dispatchChange();
   }
 
-  selectPalette(e) {
-    if (!e.target.classList.contains('palette-select')) return;
-    [...this.shadowRoot.querySelectorAll('.palette-select')].forEach(el => el.checked = false);
-    e.target.checked = true;
-    this.selectedPalette = parseInt(e.target.getAttribute('id').replace('palette-', ''));
-  }
-
   updateSelected(color) {
-    if (!this.selected) return;
-    const location = this.selectedLocation;
-    this.palettes[location[0]][location[1]] = color;
-    this.selected.style.backgroundColor = this.convertArrToRBGA(color);
+    this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]] = color;
+    this.selectedColorElement.style.backgroundColor = this.convertArrToRBGA(color);
+    this.shadowRoot.querySelector('#left-color').style.backgroundColor = this.convertArrToRBGA(color);
     this.debounced_dispatchPaletteChange();
   }
 
-  convertArrToRBGA(arr) {
-    return `rgba(${arr.join(',')})`;
+  // prevent context menu from showing
+  onContextMenu(e) {
+    e.preventDefault();
+  }
+
+  isSelectedColor(i, j) {
+    return this.selectedColorLocation[0] === i && this.selectedColorLocation[1] === j;
+  }
+
+  isSelectedAltColor(i, j) {
+    return this.selectedAltColorLocation[0] === i && this.selectedAltColorLocation[1] === j;
   }
 
   dispatchChange() {
     this.dispatchEvent(new CustomEvent('change', {
       detail: {
         selectedPalette: this.selectedPalette,
-        selectedColor: this.selectedColor,
+        selectedColor: this.rawColor,
+        altColor: this.rawAltColor,
         pickerColor: this.colorPicker.color,
         palettes: this.palettes
       }
@@ -238,7 +243,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.dispatchEvent(new CustomEvent('paletteChange', {
       detail: {
         selectedPalette: this.selectedPalette,
-        selectedColor: this.selectedColor,
+        selectedColor: this.rawColor,
+        altColor: this.rawAltColor,
         pickerColor: this.colorPicker.color,
         palettes: this.palettes
       }
@@ -274,7 +280,11 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
       }
 
       .color.selected {
-        border: 3px solid rgb(0, 159, 218, 0.7);
+        border: 3px solid rgb(0, 159, 218);
+      }
+
+      .color.selected-alt {
+        border: 3px solid rgb(192, 168, 242);
       }
 
       .divider {
@@ -328,7 +338,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
       <div class="palette-container">
         <div class="top-row">
           <div class="title">Palettes</div>
-          <input type="checkbox" name="edit">
+          <input type="checkbox" name="edit" ${this.isEdit ? 'checked' : ''}>
           <label class="edit-label" for="edit">Edit</label>
         </div>
 
@@ -336,20 +346,18 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
         ${[...new Array(this.count)].map((_, i) => `
           ${i !== 0 ? '<div class="divider"></div>' : ''}
           <div class="palette">
-            <input type="checkbox" ${i === 0 ? 'checked' : ''} id="palette-${i}" class="palette-select">
             ${[...new Array(this.colorCount)].map((_, j) => `
-              <div class="color" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" location="${i}-${j}"></div>
+              <div class="color ${this.isSelectedColor(i, j) ? 'selected' : ''} ${this.isSelectedAltColor(i, j) ? 'selected-alt' : ''}" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" id="${i}:${j}"></div>
             `).join('\n')}
           </div>
-
         `).join('\n')}
         </div>
 
         <div class="spacer"></div>
         <color-picker></color-picker>
         <div class="row">
-          <div id="left-color" class="color-block" style="background-color: ${this.leftColor};"></div>
-          <div id="right-color" class="color-block" style="background-color: ${this.rightColor};"></div>
+          <div id="left-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]])};"></div>
+          <div id="right-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]])};"></div>
         </div>
       </div>
     `;
