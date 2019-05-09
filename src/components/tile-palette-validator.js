@@ -142,7 +142,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   onTileSelect(e) {
     this.selected = e.detail.selectedTile;
     this.selectedValidation = this.data.tileValidationData[this.selected];
-    this.selectedPalette = this.selectedValidation.palette;
+    this.selectedPalette = this.paletteTool.palettes[this.selectedValidation.palette];
     this.originalPalette = this.selectedPalette !== undefined ? this.selectedPalette : this.createTempPalette();
     this.preventTileDataReload = false;
     this.render();

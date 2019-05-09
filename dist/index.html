@@ -235,8 +235,9 @@
           const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
           const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
           const dedupedTiles = this.dedupTiles(tileArray);
-          const flattenedTiles = dedupedTiles.reduce((a, b) => a.concat(b), []);
-          return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles);
+          const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
+          const tileMap = this.createTileMap(dedupedTiles);
+          return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
         }
       
         createPaletteForFile() {
@@ -262,7 +263,7 @@
           const pixelsPerTile = tileWidth * tileHeight;
       
           // create empty nested array for all tiles
-          let arr = [...new Array(tileWidth * tileHeight)].map(() => []);
+          let arr = [...new Array(tilesX * tilesY)].map(() => []);
           let y = 0;
           let x;
           let z;
@@ -289,24 +290,38 @@
         }
       
         dedupTiles(nestedTiles) {
+          const indexedTiles = nestedTiles.map((a, i) => a.concat(i));
+          const mapping = indexedTiles.reduce((a, b, i) => {
+            a[i] = b[b.length-1];
+            return a;
+          }, {});
           let length = nestedTiles.length;
           let i = 0;
           let j;
-          let arr;
+          let arr = [];
       
           for(; i < length; i += 1) {
-            arr.push(nestedTiles[i]);
+            arr.push(indexedTiles[i]);
       
-            for(j = i + 1; j < length; j += 1) {
-              if (compareTiles(nestedTiles[i], nestedTiles[j])) {
+            for (j = i + 1; j < length; j += 1) {
+              if (this.compareTiles(indexedTiles[i], indexedTiles[j])) {
+      
+                // create mapping of what tiles go where
+                mapping[indexedTiles[j][16]] = i;
+      
                 // splice from array
-                nestedTiles.splice(j, 1);
+                indexedTiles.splice(j, 1);
                 length -= 1;
               }
             }
           }
       
-          return nestedTiles;
+          arr.forEach(a => a.pop());
+      
+          return {
+            tiles: arr,
+            mapping
+          };
         }
       
         compareTiles(one, two) {
@@ -342,6 +357,10 @@
           return [`0x${('00' + lbits.toString(16)).slice(-2).toUpperCase()}`, `0x${('00' + hbits.toString(16)).slice(-2).toUpperCase()}`];
         }
       
+        createTileMap({ mapping }) {
+          return Object.keys(mapping).reduce((a, key) => a.concat(`0x${('00' + mapping[key].toString(16)).slice(-2).toUpperCase()}`), []);
+        }
+      
         convertToRGBInt(rgba) {
           return (rgba[0] >> 3) | ((rgba[1] >> 3) << 5) | ((rgba[2] >> 3) << 10);
         }
@@ -360,11 +379,12 @@
           return palette.indexOf(cint);
         }
       
-        formatFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+        formatFile(fileName, varName, palettes, tilePaletteArray, tileArray, tileMap) {
           const hFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
           const cFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-      
-          return { hFile, cFile };
+          const hMapFile = this.formatHMapFile(fileName, varName, tileMap);
+          const cMapFile = this.formatCMapFile(fileName, varName, tileMap);
+          return { hFile, cFile, hMapFile, cMapFile };
         }
       
         formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
@@ -406,6 +426,31 @@
       
             /* Start of tile array. */
             extern unsigned char ${varName}[];
+            `}
+          `;
+        }
+      
+        formatCMapFile(fileName, varName, mapping) {
+          const tileCount = mapping.length;
+          return stripIndents`
+            ${this.getComentBlock(`${fileName}Map`, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+            ${stripIndents`
+            /* map array. */
+            unsigned char ${varName}Map[${mapping.length}] = {
+              ${mapping.join(',')}
+            };
+            `}
+          `;
+        }
+      
+        formatHMapFile(fileName, varName, mapping) {
+          return stripIndents`
+            ${this.getComentBlock(`${fileName}Map`, mapping.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      
+            ${stripIndents`
+            /* map array. */
+            extern unsigned char ${varName}Map[];
             `}
           `;
         }
@@ -477,7 +522,7 @@
               colors: tileColors
             };
           });
-      
+          
           return {
             rawTileData,
             tileValidationData,
@@ -1089,7 +1134,11 @@
       }
       
       .color.selected {
-        border: 3px solid rgb(0, 159, 218, 0.7);
+        border: 3px solid rgb(0, 159, 218);
+      }
+      
+      .color.selected-alt {
+        border: 3px solid rgb(192, 168, 242);
       }
       
       .divider {
@@ -1124,36 +1173,52 @@
         margin-left: 8px;
         margin-right: 12px;
       }
+      
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .color-block {
+        flex: 1;
+        height: 24px;
+        margin: 8px 5px;
+      }
           </style>
           <render-block>
             <div class="palette-container">
         <div class="top-row">
           <div class="title">Palettes</div>
-          <input type="checkbox" name="edit">
+          <input type="checkbox" name="edit" >
           <label class="edit-label" for="edit">Edit</label>
         </div>
+      
+        <div id="palettes">
         
                   
                   <div class="palette">
-                    <input type="checkbox" checked id="palette-0" class="palette-select">
                     
-                      <div class="color" style="background-color: rgba(255,255,255,1);" location="0-0"></div>
-                    
-        
-                      <div class="color" style="background-color: rgba(127,127,127,1);" location="0-1"></div>
+                      <div class="color  selected-alt" style="background-color: rgba(255,255,255,1);" id="0:0"></div>
                     
         
-                      <div class="color" style="background-color: rgba(63,63,63,1);" location="0-2"></div>
+                      <div class="color  " style="background-color: rgba(127,127,127,1);" id="0:1"></div>
                     
         
-                      <div class="color" style="background-color: rgba(0,0,0,1);" location="0-3"></div>
+                      <div class="color  " style="background-color: rgba(63,63,63,1);" id="0:2"></div>
+                    
+        
+                      <div class="color selected " style="background-color: rgba(0,0,0,1);" id="0:3"></div>
                     
                   </div>
-        
                 
+        </div>
       
         <div class="spacer"></div>
         <color-picker></color-picker>
+        <div class="row">
+          <div id="left-color" class="color-block" style="background-color: rgba(0,0,0,1);"></div>
+          <div id="right-color" class="color-block" style="background-color: rgba(255,255,255,1);"></div>
+        </div>
       </div>
           </render-block>
           `;
@@ -1167,15 +1232,21 @@
         
           constructor() {
           super();
+      
+          this.selectedColorLocation = [0, 3];
+          this.selectedAltColorLocation = [0, 0];
+      
           this.cloneTemplate();
-          this.selectedPalette = 0;
         }
           
       
         connectedCallback() {
           this.debounced_dispatchPaletteChange = Utils.debounce(this.dispatchPaletteChange.bind(this), 100);
-          this.bound_clickColor = this.clickColor.bind(this);
+          this.bound_clickPaletteColor = this.clickPaletteColor.bind(this);
+          this.bound_rightClickPaletteColor = this.rightClickPaletteColor.bind(this);
           this.bound_onColorChange = this.onColorChange.bind(this);
+          this.bound_onContextMenu = this.onContextMenu.bind(this);
+          this.bound_onEditCheck = this.onEditCheck.bind(this);
           this.addEvents();
         }
       
@@ -1192,14 +1263,19 @@
         }
       
         addEvents() {
-          this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickColor);
+          this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_clickPaletteColor);
+          this.shadowRoot.querySelector('.palette-container').addEventListener('contextmenu', this.bound_rightClickPaletteColor);
           this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
-          this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
+          this.shadowRoot.querySelector('#palettes').addEventListener('contextmenu', this.bound_onContextMenu);
+          this.shadowRoot.querySelector('input[type=checkbox]').addEventListener('change', this.bound_onEditCheck);
         }
       
         removeEvents() {
-          this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickColor);
+          this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_clickPaletteColor);
+          this.shadowRoot.querySelector('.palette-container').removeEventListener('contextmenu', this.bound_rightClickPaletteColor);
           this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
+          this.shadowRoot.querySelector('#palettes').removeEventListener('contextmenu', this.bound_onContextMenu);
+          this.shadowRoot.querySelector('input[type=checkbox]').removeEventListener('change', this.bound_onEditCheck);
         }
       
         static get observedAttributes() {
@@ -1209,6 +1285,14 @@
         attributeChangedCallback(name, _, newValue) {
           if (name === 'count') this.count = newValue;
           if (name === 'color-count') this.colorCount = newValue;
+        }
+      
+        get selectedColorElement() {
+          return this.shadowRoot.querySelector('.color.selected');
+        }
+      
+        get selectedAltColorElement() {
+          return this.shadowRoot.querySelector('.color.selected-alt');
         }
       
         get count() {
@@ -1249,42 +1333,36 @@
           return this.palettes_;
         }
       
-        get selected() {
-          return this.selected_;
-        }
-      
-        set selected(value) {
-          if (!value.classList.contains('color')) throw Error('requires color element');
-          this.selected_ = value;
-        }
-      
-        get selectedColor() {
-          if (!this.selected) return null;
-          const location = this.selectedLocation;
-          return this.palettes[location[0]][location[1]];
-        }
-      
-        get selectedLocation() {
-          if (!this.selected) return null;
-          return this.selected.getAttribute('location').split('-');
-        }
-      
         get colorPicker() {
           return this.shadowRoot.querySelector('color-picker');
         }
       
-        get selectedPalette() {
-          return this.selectedPalette_;
+        get color() {
+          return this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
         }
       
-        set selectedPalette(value) {
-          value = parseInt(value);
-          if (value > this.count) value = this.count;
-          this.selectedPalette_ = value;
+        get rawColor() {
+          return this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]];
         }
       
-        isEdit() {
-          return this.shadowRoot.querySelector('input[name="edit"]').checked;
+        get altColor() {
+          return this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]]);
+        }
+      
+        get rawAltColor() {
+          return this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]];
+        }
+      
+        get isEdit() {
+          return this.isEdit_ || false;
+        }
+      
+        set isEdit(value) {
+          this.isEdit_ = value;
+        }
+      
+        onEditCheck(e) {
+          this.isEdit = this.shadowRoot.querySelector('input[name="edit"]').checked;
         }
       
         generateDefaultPalette() {
@@ -1304,48 +1382,81 @@
           }
         }
       
-        clickColor(e) {
-          this.selectPalette(e);
+        convertArrToRBGA(arr) {
+          return `rgba(${arr.join(',')})`;
+        }
+      
+        // select color
+        clickPaletteColor(e) {
+          // not clickomng on color block
           if (!e.target.classList.contains('color')) {
-            this.dispatchChange();
+            // NOTE is this needed
+            // this.dispatchChange();
             return;
           }
       
-          if (this.selected) this.selected.classList.remove('selected');
-          this.selected = e.target;
-          this.selected.classList.add('selected');
+          // clear last selected color inside palette
+          if (this.selectedColorElement) this.selectedColorElement.classList.remove('selected');
+      
+          // select new palette color
+          e.target.classList.add('selected');
+          this.selectedColorLocation = this.selectedColorElement.getAttribute('id').split(':').map(n => parseInt(n));
+          this.render();
+          this.dispatchChange();
+        }
+      
+        // select alt color
+        rightClickPaletteColor(e) {
+          e.preventDefault();
+      
+          // not clickomng on color block
+          if (!e.target.classList.contains('color')) {
+            // NOTE is this needed
+            // this.dispatchChange();
+            return;
+          }
+      
+          // clear last selected color inside palette
+          if (this.selectedAltColorElement) this.selectedAltColorElement.classList.remove('selected-alt');
+      
+          // select new palette color
+          e.target.classList.add('selected-alt');
+          this.selectedAltColorLocation = this.selectedAltColorElement.getAttribute('id').split(':').map(n => parseInt(n));
+          this.render();
           this.dispatchChange();
         }
       
         onColorChange(e) {
-          if (this.isEdit()) this.updateSelected(e.detail.color);
+          if (this.isEdit) this.updateSelected(e.detail.color);
           this.dispatchChange();
         }
       
-        selectPalette(e) {
-          if (!e.target.classList.contains('palette-select')) return;
-          [...this.shadowRoot.querySelectorAll('.palette-select')].forEach(el => el.checked = false);
-          e.target.checked = true;
-          this.selectedPalette = parseInt(e.target.getAttribute('id').replace('palette-', ''));
-        }
-      
         updateSelected(color) {
-          if (!this.selected) return;
-          const location = this.selectedLocation;
-          this.palettes[location[0]][location[1]] = color;
-          this.selected.style.backgroundColor = this.convertArrToRBGA(color);
+          this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]] = color;
+          this.selectedColorElement.style.backgroundColor = this.convertArrToRBGA(color);
+          this.shadowRoot.querySelector('#left-color').style.backgroundColor = this.convertArrToRBGA(color);
           this.debounced_dispatchPaletteChange();
         }
       
-        convertArrToRBGA(arr) {
-          return `rgba(${arr.join(',')})`;
+        // prevent context menu from showing
+        onContextMenu(e) {
+          e.preventDefault();
+        }
+      
+        isSelectedColor(i, j) {
+          return this.selectedColorLocation[0] === i && this.selectedColorLocation[1] === j;
+        }
+      
+        isSelectedAltColor(i, j) {
+          return this.selectedAltColorLocation[0] === i && this.selectedAltColorLocation[1] === j;
         }
       
         dispatchChange() {
           this.dispatchEvent(new CustomEvent('change', {
             detail: {
               selectedPalette: this.selectedPalette,
-              selectedColor: this.selectedColor,
+              selectedColor: this.rawColor,
+              altColor: this.rawAltColor,
               pickerColor: this.colorPicker.color,
               palettes: this.palettes
             }
@@ -1356,7 +1467,8 @@
           this.dispatchEvent(new CustomEvent('paletteChange', {
             detail: {
               selectedPalette: this.selectedPalette,
-              selectedColor: this.selectedColor,
+              selectedColor: this.rawColor,
+              altColor: this.rawAltColor,
               pickerColor: this.colorPicker.color,
               palettes: this.palettes
             }
@@ -1392,7 +1504,11 @@
             }
       
             .color.selected {
-              border: 3px solid rgb(0, 159, 218, 0.7);
+              border: 3px solid rgb(0, 159, 218);
+            }
+      
+            .color.selected-alt {
+              border: 3px solid rgb(192, 168, 242);
             }
       
             .divider {
@@ -1427,6 +1543,17 @@
               margin-left: 8px;
               margin-right: 12px;
             }
+      
+            .row {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .color-block {
+              flex: 1;
+              height: 24px;
+              margin: 8px 5px;
+            }
           `;
         }
       
@@ -1435,22 +1562,27 @@
             <div class="palette-container">
               <div class="top-row">
                 <div class="title">Palettes</div>
-                <input type="checkbox" name="edit">
+                <input type="checkbox" name="edit" ${this.isEdit ? 'checked' : ''}>
                 <label class="edit-label" for="edit">Edit</label>
               </div>
+      
+              <div id="palettes">
               ${[...new Array(this.count)].map((_, i) => `
                 ${i !== 0 ? '<div class="divider"></div>' : ''}
                 <div class="palette">
-                  <input type="checkbox" ${i === 0 ? 'checked' : ''} id="palette-${i}" class="palette-select">
                   ${[...new Array(this.colorCount)].map((_, j) => `
-                    <div class="color" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" location="${i}-${j}"></div>
+                    <div class="color ${this.isSelectedColor(i, j) ? 'selected' : ''} ${this.isSelectedAltColor(i, j) ? 'selected-alt' : ''}" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" id="${i}:${j}"></div>
                   `).join('\n')}
                 </div>
-      
               `).join('\n')}
+              </div>
       
               <div class="spacer"></div>
               <color-picker></color-picker>
+              <div class="row">
+                <div id="left-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]])};"></div>
+                <div id="right-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]])};"></div>
+              </div>
             </div>
           `;
         }
@@ -1637,6 +1769,19 @@
           this.drawMainCursor();
         }
       
+        get altColor() {
+          return this.convertToRGBA(this.altColor_);
+        }
+      
+        get rawAltColor() {
+          return this.altColor_;
+        }
+      
+        set altColor(value) {
+          if (!value) return;
+          this.altColor_ = value;
+        }
+      
         get backgroundCanvas() {
           return this.shadowRoot.querySelector('#backround-canvas');
         }
@@ -1775,10 +1920,11 @@
         // --- bockground canvas events ---
         mouseDown(e) {
           // block right click
-          if (e.which !== 1) return;
-      
           this.isMouseDown = true;
-          this.fillPixel(e.clientX, e.clientY);
+          // right
+          if (e.which !== 1) this.fillPixel(e.clientX, e.clientY, this.altColor);
+          // left
+          else this.fillPixel(e.clientX, e.clientY, this.color);
         }
       
         mouseUp(e) {
@@ -1859,7 +2005,7 @@
           this.storeCanvas();
         }
       
-        fillPixel(x, y) {
+        fillPixel(x, y, color) {
           const bounds = this.getBoundingClientRect();
           x -= bounds.left;
           y -= bounds.top;
@@ -1868,7 +2014,7 @@
           y = y2;
       
           const ctx = this.backgroundContext;
-          ctx.fillStyle = this.color;
+          ctx.fillStyle = color;
           ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
         }
       
@@ -3339,7 +3485,7 @@
         onTileSelect(e) {
           this.selected = e.detail.selectedTile;
           this.selectedValidation = this.data.tileValidationData[this.selected];
-          this.selectedPalette = this.selectedValidation.palette;
+          this.selectedPalette = this.paletteTool.palettes[this.selectedValidation.palette];
           this.originalPalette = this.selectedPalette !== undefined ? this.selectedPalette : this.createTempPalette();
           this.preventTileDataReload = false;
           this.render();
@@ -3794,8 +3940,9 @@
           <br/>
       
           <label for="imageType">Image type: </label>
-          <select name="imageType">
-            <option selected value="image/png">PNG</option>
+          <select name="filetype">
+            <option selected value="">GBDK (c, h)</option>
+            <option value="image/png">PNG</option>
             <option value="image/jpg">JPG</option>
             <option value="image/gif">GIF</option>
           </select>
@@ -3834,16 +3981,35 @@
           return this.shadowRoot.querySelector('#save-button');
         }
       
-        get imageType() {
-          return this.shadowRoot.querySelector('select[name="imageType"]').value;
+        get filetype() {
+          return this.shadowRoot.querySelector('select[name="filetype"]').value;
         }
       
         get extension() {
-          return this.imageType.split('/')[1].toLowerCase();
+          return this.filetype && this.filetype.split('/')[1].toLowerCase();
         }
       
         get fileName() {
           return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}.${this.extension}`;
+        }
+      
+        get canvas() {
+          return this.canvas_;
+        }
+        set canvas(value) {
+          this.canvas_ = value;
+        }
+      
+        get paletteTool() {
+          return this.paletteTool_;
+        }
+        set paletteTool(value) {
+          this.paletteTool_ = value;
+        }
+      
+        getDataBlob(data, contentType = 'application/octet-stream') {
+          data = btoa(data);
+          return `data:${contentType};base64,${data}`;
         }
       
         save() {
@@ -3851,17 +4017,43 @@
           this.dispatchEvent(new CustomEvent('save', {
             detail: {
               fileName: this.fileName,
-              imageType: this.imageType
+              filetype: this.filetype
             }
           }));
           this.remove();
         }
       
         downloadFile() {
-          const link = document.createElement('a');
-          link.download = this.fileName;
-          link.href = document.querySelector('draw-canvas').getDataURL(this.imageType);
-          link.click();
+          if (['imge/gif', 'image/jpg', 'image/png'].includes(this.filetype)) {
+            const link = document.createElement('a');
+            link.download = this.fileName;
+            link.href = document.querySelector('draw-canvas').getDataURL(this.filetype);
+            link.click();
+      
+          } else {
+            const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
+            const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName);
+      
+            const link = document.createElement('a');
+            link.download = `${this.fileName}.h`;
+            link.href = this.getDataBlob(hFile);
+            link.click();
+      
+            const link2 = document.createElement('a');
+            link2.download = `${this.fileName}.c`;
+            link2.href = this.getDataBlob(cFile);
+            link2.click();
+      
+            const link3 = document.createElement('a');
+            link3.download = `${this.fileName}Map.h`;
+            link3.href = this.getDataBlob(hMapFile);
+            link3.click();
+      
+            const link4 = document.createElement('a');
+            link4.download = `${this.fileName}Map.c`;
+            link4.href = this.getDataBlob(cMapFile);
+            link4.click();
+          }
         }
       
         styles() {
@@ -3966,8 +4158,9 @@
                 <br/>
       
                 <label for="imageType">Image type: </label>
-                <select name="imageType">
-                  <option selected value="image/png">PNG</option>
+                <select name="filetype">
+                  <option selected value="">GBDK (c, h)</option>
+                  <option value="image/png">PNG</option>
                   <option value="image/jpg">JPG</option>
                   <option value="image/gif">GIF</option>
                 </select>
@@ -4020,7 +4213,8 @@
           this.bound_paletteChange = this.paletteChange.bind(this);
           this.paletteTool.addEventListener('change', this.bound_paletteChange);
           this.centerCanvas();
-          this.canvas.color = this.paletteTool.selectedColor;
+          this.canvas.color = this.paletteTool.rawColor;
+          this.canvas.altColor = this.paletteTool.rawAltColor;
           this.canvas.tileWidth = 8;
           this.canvas.tileHeight = 8;
           this.bound_onCreate = this.onCreate.bind(this);
@@ -4057,6 +4251,7 @@
       
         paletteChange(e) {
           this.canvas.color = e.detail.selectedColor;
+          this.canvas.altColor = e.detail.altColor;
         }
       
         onCreate(e) {
@@ -4115,32 +4310,10 @@
         }
       
         showSaveDialog() {
-          // document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
-          const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-          const { hFile, cFile } = cl.process('test', 'Test');
-      
-          console.log(hFile);
-          console.log(cFile);
-      
-          // const linkpng = document.createElement('a');
-          // linkpng.download = 'test';
-          // linkpng.href = this.canvas.getDataURL('image/png');
-          // linkpng.click();
-          //
-          // const link = document.createElement('a');
-          // link.download = 'test.h';
-          // link.href = this.getDataBlob(hFile);
-          // link.click();
-          //
-          // const link2 = document.createElement('a');
-          // link2.download = 'test.c';
-          // link2.href = this.getDataBlob(cFile);
-          // link2.click();
-        }
-      
-        getDataBlob(data, contentType = 'application/octet-stream') {
-          data = btoa(data);
-          return `data:${contentType};base64,${data}`;
+          document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
+          const el = document.querySelector('save-dialog');
+          el.canvas = this.canvas;
+          el.paletteTool = this.paletteTool;
         }
       
         template() {
