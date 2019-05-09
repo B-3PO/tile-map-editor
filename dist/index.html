@@ -522,7 +522,7 @@
               colors: tileColors
             };
           });
-          
+      
           return {
             rawTileData,
             tileValidationData,
@@ -2912,12 +2912,12 @@
       
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
-              <label for="pixels-x">x</label>
-              <input name="pixels-x" type="number" value="8" >
-              <span>px</span>
-              <label for="pixels-x">y</label>
-              <input name="pixels-y" type="number" value="16" >
-              <span>px</span>
+              <label for="tile-count-x">x</label>
+              <input name="tile-count-x" type="number" value="20" >
+              <span>Tiles</span>
+              <label for="tile-count-y">y</label>
+              <input name="tile-count-y" type="number" value="18" >
+              <span>Tiles</span>
             </div>
       
             <div class="sub-header">Tile size</div>
@@ -2982,12 +2982,20 @@
           return this.shadowRoot.querySelector('#create');
         }
       
+        get tileCountX() {
+          return this.shadowRoot.querySelector('input[name="tile-count-x"]').value;
+        }
+      
+        get tileCountY() {
+          return this.shadowRoot.querySelector('input[name="tile-count-y"]').value;
+        }
+      
         get pixelsX() {
-          return this.shadowRoot.querySelector('input[name="pixels-x"]').value;
+          return this.tileCountX * this.tileX;
         }
       
         get pixelsY() {
-          return this.shadowRoot.querySelector('input[name="pixels-y"]').value;
+          return this.tileCountY * this.tileY;
         }
       
         get tileX() {
@@ -3010,6 +3018,8 @@
           this.dispatchEvent(new CustomEvent('create', {
             detail: {
               size: {
+                tileCountX: this.tileCountX,
+                tileCountY: this.tileCountY,
                 x: this.pixelsX,
                 y: this.pixelsY
               },
@@ -3160,12 +3170,12 @@
       
                   <div class="sub-header">Canvas size</div>
                   <div class="control-container">
-                    <label for="pixels-x">x</label>
-                    <input name="pixels-x" type="number" value="8" >
-                    <span>px</span>
-                    <label for="pixels-x">y</label>
-                    <input name="pixels-y" type="number" value="16" >
-                    <span>px</span>
+                    <label for="tile-count-x">x</label>
+                    <input name="tile-count-x" type="number" value="20" >
+                    <span>Tiles</span>
+                    <label for="tile-count-y">y</label>
+                    <input name="tile-count-y" type="number" value="18" >
+                    <span>Tiles</span>
                   </div>
       
                   <div class="sub-header">Tile size</div>
@@ -3483,6 +3493,7 @@
         }
       
         onTileSelect(e) {
+          console.log(this.paletteTool.palettes);
           this.selected = e.detail.selectedTile;
           this.selectedValidation = this.data.tileValidationData[this.selected];
           this.selectedPalette = this.paletteTool.palettes[this.selectedValidation.palette];
@@ -4196,6 +4207,290 @@
               }
             }
           );
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','upload-dialog');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 11;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      
+      .container {
+        display: inline-block;
+        position: relative;
+        left: 50%;
+        top: 50%;
+        width: 360px;
+        height: auto;
+        transform: translate(-50%, -50%);
+      
+        background-color: #DDD;
+        border: 1px solid #999;
+        border-radius: 3px;
+        box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                    0 8px 10px 1px rgba(0,0,0,.14),
+                    0 3px 14px 2px rgba(0,0,0,.12);
+      }
+      
+      .title {
+        font-size: 22px;
+        color: #444;
+        margin-bottom: 24px;
+      }
+      
+      .sub-title {
+        font-size: 20px;
+        color: #444;
+        margin-bottom: 18px;
+      }
+      
+      .sub-header {
+        font-size: 16px;
+        color: #777;
+        margin-bottom: 4px;
+      }
+      
+      .content {
+        padding: 24px;
+      }
+      
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .controls {
+        margin-top: 24px;
+      }
+      
+      .button,
+      button {
+        align-items: center;
+        border: none;
+        border-radius: 4px;
+        box-sizing: border-box;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 33px;
+        justify-content: center;
+        line-height: 32px;
+        min-width: 64px;
+        outline: none;
+        overflow: hidden;
+        padding: 0 8px 0 8px;
+        position: relative;
+        vertical-align: middle;
+        margin: 0;
+        background-color: white;
+      }
+      
+      .button:hover,
+      button:hover {
+        cursor: pointer;
+        background-color: #EEE;
+      }
+          </style>
+          <render-block>
+            <div class="container">
+        <div class="content">
+          <div class="title">Upload</div>
+      
+          <div>
+            <label id="browser" class="button" for="fileChooser">Browse</label>
+            <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png">
+          </div>
+        </div>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("upload-dialog", 
+            class uploadDialog extends HTMLElement {
+              
+          
+        
+          constructor() {
+          super();
+      
+          this.bound_loadImage = this.loadImage.bind(this);
+      
+          this.cloneTemplate();
+        }
+          
+      
+        connectedCallback() {
+          this.shadowRoot.querySelector('input[type=file]').addEventListener('change', this.bound_loadImage);
+        }
+      
+        disconnectedCallback() {
+          this.shadowRoot.querySelector('input[type=file]').removeEventListener('change', this.bound_loadImage);
+        }
+      
+        get canvas() {
+          return this.canvas_;
+        }
+      
+        set canvas(value) {
+          this.canvas_ = value;
+        }
+      
+        loadImage(e) {
+          if(e.target.files.length === 0) return;
+          const file = e.target.files[0];
+          if(file.type !== '' && !file.type.match('image.*')) return;
+      
+          const image = new Image();
+          image.addEventListener('load', () => {
+            console.log('okokoko');
+            this.canvas.drawImage(image, 0, 0);
+          }, false);
+          image.src = window.URL.createObjectURL(file);
+      
+          this.remove();
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              position: fixed;
+              top: 0;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              z-index: 11;
+              background-color: rgba(0, 0, 0, 0.5);
+            }
+      
+            .container {
+              display: inline-block;
+              position: relative;
+              left: 50%;
+              top: 50%;
+              width: 360px;
+              height: auto;
+              transform: translate(-50%, -50%);
+      
+              background-color: #DDD;
+              border: 1px solid #999;
+              border-radius: 3px;
+              box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                          0 8px 10px 1px rgba(0,0,0,.14),
+                          0 3px 14px 2px rgba(0,0,0,.12);
+            }
+      
+            .title {
+              font-size: 22px;
+              color: #444;
+              margin-bottom: 24px;
+            }
+      
+            .sub-title {
+              font-size: 20px;
+              color: #444;
+              margin-bottom: 18px;
+            }
+      
+            .sub-header {
+              font-size: 16px;
+              color: #777;
+              margin-bottom: 4px;
+            }
+      
+            .content {
+              padding: 24px;
+            }
+      
+            .row {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .controls {
+              margin-top: 24px;
+            }
+      
+            .button,
+            button {
+              align-items: center;
+              border: none;
+              border-radius: 4px;
+              box-sizing: border-box;
+              display: inline-flex;
+              font-size: 14px;
+              font-weight: 500;
+              height: 33px;
+              justify-content: center;
+              line-height: 32px;
+              min-width: 64px;
+              outline: none;
+              overflow: hidden;
+              padding: 0 8px 0 8px;
+              position: relative;
+              vertical-align: middle;
+              margin: 0;
+              background-color: white;
+            }
+      
+            .button:hover,
+            button:hover {
+              cursor: pointer;
+              background-color: #EEE;
+            }
+          `;
+        }
+      
+      
+        template() {
+          return html`
+            <div class="container">
+              <div class="content">
+                <div class="title">Upload</div>
+      
+                <div>
+                  <label id="browser" class="button" for="fileChooser">Browse</label>
+                  <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png">
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      
+      
+          
+          
+        
+      
+              render() {
+                if (this.beforeRender) this.beforeRender();
+                const renderBlock = this.shadowRoot.querySelector('render-block');
+                if (!renderBlock) throw Error('Could not find <render-block>');
+                renderBlock.innerHTML = this.template();
+                if (this.afterRender) this.afterRender();
+              }
+      
+              cloneTemplate(rerender = false) {
+                var template = document.getElementById('upload-dialog');
+                var templateContent = template.content;
+                var shadowRoot = this.shadowRoot ? this.shadowRoot : this.attachShadow({mode: 'open'});
+                var clone = templateContent.cloneNode(true);
+                if (rerender) clone.querySelector('render-block').innerHTML = this.template();
+                shadowRoot.appendChild(clone);
+              }
+            }
+          );
           });
         
     
@@ -4297,23 +4592,18 @@
           } else this.canvas.hideGrid();
         }
       
-        loadImage(el) {
-          if(el.files.length === 0) return;
-          const file = el.files[0];
-          if(file.type !== '' && !file.type.match('image.*')) return;
-      
-          const image = new Image();
-          image.addEventListener('load', () => {
-            this.canvas.drawImage(image, 0, 0);
-          }, false);
-          image.src = window.URL.createObjectURL(file);
-        }
-      
         showSaveDialog() {
           document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
           const el = document.querySelector('save-dialog');
           el.canvas = this.canvas;
           el.paletteTool = this.paletteTool;
+        }
+      
+        showUploadDialog() {
+          document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<upload-dialog></upload-dialog>');
+          const el = document.querySelector('upload-dialog');
+          el.canvas = this.canvas;
+          // el.paletteTool = this.paletteTool;
         }
       
         template() {
@@ -4330,10 +4620,9 @@
                   <img src="format-color-fill.svg" alt="color-fill">
                 </div>
                 <div style="flex: 1;"></div>
-                <label for="fileChooser" class="icon-button-svg">
+                <div class="icon-button-svg" onclick="$Home.showUploadDialog()">
                   <img src="file-upload.svg" alt="image-upload">
-                </label>
-                <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
+                </div>
                 <div class="icon-button" onclick="$Home.showSaveDialog()">save</div>
               </div>
               <div class="canvas-container">
@@ -4372,6 +4661,7 @@
       
       
       
+      
     </style>
   </head>
 
@@ -4389,10 +4679,9 @@
             <img src="format-color-fill.svg" alt="color-fill">
           </div>
           <div style="flex: 1;"></div>
-          <label for="fileChooser" class="icon-button-svg">
+          <div class="icon-button-svg" onclick="$Home.showUploadDialog()">
             <img src="file-upload.svg" alt="image-upload">
-          </label>
-          <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
+          </div>
           <div class="icon-button" onclick="$Home.showSaveDialog()">save</div>
         </div>
         <div class="canvas-container">

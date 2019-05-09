@@ -99,23 +99,18 @@ module.exports = class Home extends Page {
     } else this.canvas.hideGrid();
   }
 
-  loadImage(el) {
-    if(el.files.length === 0) return;
-    const file = el.files[0];
-    if(file.type !== '' && !file.type.match('image.*')) return;
-
-    const image = new Image();
-    image.addEventListener('load', () => {
-      this.canvas.drawImage(image, 0, 0);
-    }, false);
-    image.src = window.URL.createObjectURL(file);
-  }
-
   showSaveDialog() {
     document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<save-dialog></save-dialog>');
     const el = document.querySelector('save-dialog');
     el.canvas = this.canvas;
     el.paletteTool = this.paletteTool;
+  }
+
+  showUploadDialog() {
+    document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<upload-dialog></upload-dialog>');
+    const el = document.querySelector('upload-dialog');
+    el.canvas = this.canvas;
+    // el.paletteTool = this.paletteTool;
   }
 
   template() {
@@ -132,10 +127,9 @@ module.exports = class Home extends Page {
             <img src="format-color-fill.svg" alt="color-fill">
           </div>
           <div style="flex: 1;"></div>
-          <label for="fileChooser" class="icon-button-svg">
+          <div class="icon-button-svg" onclick="$Home.showUploadDialog()">
             <img src="file-upload.svg" alt="image-upload">
-          </label>
-          <input hidden="true" type="file" name="fileChooser" id="fileChooser" accept="image/jpeg,image/png" onchange="$Home.loadImage(this)">
+          </div>
           <div class="icon-button" onclick="$Home.showSaveDialog()">save</div>
         </div>
         <div class="canvas-container">
