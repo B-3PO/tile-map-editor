@@ -24,12 +24,20 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
     return this.shadowRoot.querySelector('#create');
   }
 
+  get tileCountX() {
+    return this.shadowRoot.querySelector('input[name="tile-count-x"]').value;
+  }
+
+  get tileCountY() {
+    return this.shadowRoot.querySelector('input[name="tile-count-y"]').value;
+  }
+
   get pixelsX() {
-    return this.shadowRoot.querySelector('input[name="pixels-x"]').value;
+    return this.tileCountX * this.tileX;
   }
 
   get pixelsY() {
-    return this.shadowRoot.querySelector('input[name="pixels-y"]').value;
+    return this.tileCountY * this.tileY;
   }
 
   get tileX() {
@@ -52,6 +60,8 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
     this.dispatchEvent(new CustomEvent('create', {
       detail: {
         size: {
+          tileCountX: this.tileCountX,
+          tileCountY: this.tileCountY,
           x: this.pixelsX,
           y: this.pixelsY
         },
@@ -202,12 +212,12 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
 
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
-              <label for="pixels-x">x</label>
-              <input name="pixels-x" type="number" value="8" >
-              <span>px</span>
-              <label for="pixels-x">y</label>
-              <input name="pixels-y" type="number" value="16" >
-              <span>px</span>
+              <label for="tile-count-x">x</label>
+              <input name="tile-count-x" type="number" value="20" >
+              <span>Tiles</span>
+              <label for="tile-count-y">y</label>
+              <input name="tile-count-y" type="number" value="18" >
+              <span>Tiles</span>
             </div>
 
             <div class="sub-header">Tile size</div>

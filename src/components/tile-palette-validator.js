@@ -140,6 +140,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   onTileSelect(e) {
+    console.log(this.paletteTool.palettes);
     this.selected = e.detail.selectedTile;
     this.selectedValidation = this.data.tileValidationData[this.selected];
     this.selectedPalette = this.paletteTool.palettes[this.selectedValidation.palette];
