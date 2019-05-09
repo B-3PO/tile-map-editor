@@ -123,6 +123,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   set color(colorArr) {
+    if (!this.isEdit) return;
     this.updateSelected(colorArr);
   }
 
