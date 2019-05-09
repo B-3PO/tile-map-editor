@@ -102,8 +102,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   get tileData() {
-    if (!this.tileData_) this.tileData_ = this.data.rawTileData[this.selected];
-    return this.tileData_;
+    return this.data.rawTileData[this.selected];
   }
 
   set tileData(value) {
@@ -163,12 +162,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     if (!tileCanvas) return;
 
     const ctx = tileCanvas.getContext('2d');
-    if (!palette) {
-      ctx.stokeStyle = 'red';
-      ctx.strokeRect(0, 0, 80, 80);
-      return;
-    }
-
     const isSelectedTile = selector === '#selected-tile-canvas';
     if (isSelectedTile) this.selectedTileData = [];
     const pixelScale = this.tileDrawScale;
@@ -179,19 +172,26 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     let y = 0;
     let palettePosition;
     let currentPixelColor;
+    let noPaletttePalette = [];
 
     for(; y < pixelsY; y += 1) {
       for(x = 0; x < pixelsX; x += 1) {
         currentPixelColor = this.tilePaletteChecker.RGBAtoInt(tileData[y * pixelsX + x]);
         palettePosition = this.originalPalette.map(c => this.tilePaletteChecker.RGBAtoInt(c)).indexOf(currentPixelColor);
-        ctx.fillStyle = `rgba(${palette[palettePosition]})`;
-        // console.log(currentPixelColor, palettePosition, this.originalPalette, palette);
-        ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
-        if (isSelectedTile) {
-          this.selectedTileData.push(palette[palettePosition]);
+
+        if (palette) {
+          ctx.fillStyle = `rgba(${palette[palettePosition]})`;
+          ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+          if (isSelectedTile) this.selectedTileData.push(palette[palettePosition]);
+        } else {
+          ctx.fillStyle = `rgba(${tileData[y * pixelsX + x]})`;
+          ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
+          noPaletttePalette[currentPixelColor] = tileData[y * pixelsX + x];
         }
       }
     }
+
+    if (!palette) this.noPalettePalette = Object.keys(noPaletttePalette).map(k => noPaletttePalette[k]);
   }
 
   createTempPalette() {
@@ -208,6 +208,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   drawPaletteVariations() {
     this.clearTiles();
+    this.noPalettePalette = undefined;
 
     // draw current tile in selected spot
     this.drawTile('#selected-tile-canvas', this.selectedPalette);
@@ -215,6 +216,13 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     this.paletteTool.palettes.forEach((palette, i) => {
       this.drawTile(`#palette-tile-canvas-${i}`, palette);
     });
+
+    if (this.noPalettePalette) {
+      this.drawTile('#palette-tile-canvas-no-palette', this.noPalettePalette);
+      this.shadowRoot.querySelector('#palette-tile-canvas-no-palette').style.display = 'block';
+      this.shadowRoot.querySelector('#no-palette-palette-display').style.display = 'block';
+      this.shadowRoot.querySelector('#no-palette-palette-display').colors = this.noPalettePalette;
+    }
   }
 
   clearTiles() {
@@ -360,6 +368,8 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
                 ${this.paletteTool.palettes.map((palette, i) => html`
                   <palette-display class="palette-displays"></palette-display>
                 `).join('\n')}
+
+                <palette-display id="no-palette-palette-display" style="display:none;" class="palette-displays"></palette-display>
               </div>
               <div class="row">
                 <canvas id="selected-tile-canvas" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
@@ -367,7 +377,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
                 ${this.paletteTool.palettes.map((palette, i) => html`
                   <canvas id="palette-tile-canvas-${i}" class="palette-tile" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
                 `).join('\n')}
-
+                <canvas id="palette-tile-canvas-no-palette" class="palette-tile" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}" style="display:none;"></canvas>
                 <button id="apply-changes">Apply change</button>
               </div>
             `
