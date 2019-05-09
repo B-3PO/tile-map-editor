@@ -100,6 +100,19 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.drawMainCursor();
   }
 
+  get altColor() {
+    return this.convertToRGBA(this.altColor_);
+  }
+
+  get rawAltColor() {
+    return this.altColor_;
+  }
+
+  set altColor(value) {
+    if (!value) return;
+    this.altColor_ = value;
+  }
+
   get backgroundCanvas() {
     return this.shadowRoot.querySelector('#backround-canvas');
   }
@@ -238,10 +251,11 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   // --- bockground canvas events ---
   mouseDown(e) {
     // block right click
-    if (e.which !== 1) return;
-
     this.isMouseDown = true;
-    this.fillPixel(e.clientX, e.clientY);
+    // right
+    if (e.which !== 1) this.fillPixel(e.clientX, e.clientY, this.altColor);
+    // left
+    else this.fillPixel(e.clientX, e.clientY, this.color);
   }
 
   mouseUp(e) {
@@ -322,7 +336,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.storeCanvas();
   }
 
-  fillPixel(x, y) {
+  fillPixel(x, y, color) {
     const bounds = this.getBoundingClientRect();
     x -= bounds.left;
     y -= bounds.top;
@@ -331,7 +345,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     y = y2;
 
     const ctx = this.backgroundContext;
-    ctx.fillStyle = this.color;
+    ctx.fillStyle = color;
     ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
   }
 

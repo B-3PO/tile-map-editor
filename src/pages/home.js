@@ -15,7 +15,8 @@ module.exports = class Home extends Page {
     this.bound_paletteChange = this.paletteChange.bind(this);
     this.paletteTool.addEventListener('change', this.bound_paletteChange);
     this.centerCanvas();
-    this.canvas.color = this.paletteTool.selectedColor;
+    this.canvas.color = this.paletteTool.rawColor;
+    this.canvas.altColor = this.paletteTool.rawAltColor;
     this.canvas.tileWidth = 8;
     this.canvas.tileHeight = 8;
     this.bound_onCreate = this.onCreate.bind(this);
@@ -52,6 +53,7 @@ module.exports = class Home extends Page {
 
   paletteChange(e) {
     this.canvas.color = e.detail.selectedColor;
+    this.canvas.altColor = e.detail.altColor;
   }
 
   onCreate(e) {
