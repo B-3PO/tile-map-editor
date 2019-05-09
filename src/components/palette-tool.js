@@ -23,6 +23,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.bound_onColorChange = this.onColorChange.bind(this);
     this.bound_onContextMenu = this.onContextMenu.bind(this);
     this.bound_onEditCheck = this.onEditCheck.bind(this);
+    this.bound_onSettingsChange = this.onSettingsChange.bind(this);
     this.addEvents();
   }
 
@@ -44,6 +45,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('color-picker').addEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('#palettes').addEventListener('contextmenu', this.bound_onContextMenu);
     this.shadowRoot.querySelector('input[type=checkbox]').addEventListener('change', this.bound_onEditCheck);
+    this.shadowRoot.querySelector('input[name=count]').addEventListener('change', this.bound_onSettingsChange);
+    this.shadowRoot.querySelector('input[name=colorCount]').addEventListener('change', this.bound_onSettingsChange);
   }
 
   removeEvents() {
@@ -52,6 +55,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('color-picker').removeEventListener('change', this.bound_onColorChange);
     this.shadowRoot.querySelector('#palettes').removeEventListener('contextmenu', this.bound_onContextMenu);
     this.shadowRoot.querySelector('input[type=checkbox]').removeEventListener('change', this.bound_onEditCheck);
+    this.shadowRoot.querySelector('input[name=count]').removeEventListener('change', this.bound_onSettingsChange);
+    this.shadowRoot.querySelector('input[name=colorCount]').removeEventListener('change', this.bound_onSettingsChange);
   }
 
   static get observedAttributes() {
@@ -135,6 +140,11 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
 
   set isEdit(value) {
     this.isEdit_ = value;
+  }
+
+  onSettingsChange() {
+    this.count = this.shadowRoot.querySelector('input[name=count]').value;
+    this.colorCount = this.shadowRoot.querySelector('input[name=colorCount]').value;
   }
 
   onEditCheck(e) {
@@ -301,9 +311,14 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
       }
 
       .title {
-        margin-left: 32px;
         font-size: 18px;
         font-weight: 400;
+        padding-left: 6px;
+        flex: 1;
+      }
+
+      .subtitle {
+        font-size: 14px;
         padding-left: 6px;
         flex: 1;
       }
@@ -330,6 +345,20 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
         height: 24px;
         margin: 8px 5px;
       }
+
+      .settings {
+        margin: 18px 0;
+      }
+
+      .settings .sub {
+        margin-top: 6px;
+        margin-left: 12px;
+      }
+
+      .setting-input {
+        width: 40px;
+        margin-right: 22px;
+      }
     `;
   }
 
@@ -340,6 +369,17 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
           <div class="title">Palettes</div>
           <input type="checkbox" name="edit" ${this.isEdit ? 'checked' : ''}>
           <label class="edit-label" for="edit">Edit</label>
+        </div>
+
+        <div class="settings">
+          <div class="subtitle">Settings</div>
+
+          <div class="sub">
+            <label class="edit-label" for="count">Count</label>
+            <input name="count" class="setting-input" value="${this.count}">
+            <label class="edit-label" for="colorCount">Color count</label>
+            <input name="colorCount" class="setting-input" value="${this.colorCount}">
+          </div>
         </div>
 
         <div id="palettes">
