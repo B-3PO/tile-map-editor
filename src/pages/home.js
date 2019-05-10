@@ -8,7 +8,7 @@ module.exports = class Home extends Page {
     this.canvasWidth = 160;
     this.canvasHeight = 144;
     this.scale = 4;
-    this.disableEntry = false;
+    this.disableEntry = true;
   }
 
   connectedCallback() {

@@ -526,6 +526,28 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     };
   }
 
+  getAllColors() {
+    const pData = this.getNormalizedCanvasData().data;
+    const width = this.canvasWidth;
+    const height = this.canvasHeight;
+    const colors = [];
+    let currentRow = 0;
+    let currentColumn = 0;
+    let pixelCounter = 0;
+    let rawColor;
+
+    for (; currentRow < height; currentRow += 1) {
+      for (; currentColumn < width; currentColumn += 1) {
+        rawColor = [pData[pixelCounter], pData[pixelCounter + 1], pData[pixelCounter + 2], pData[pixelCounter + 3] / 255];
+        colors[this.RGBAtoInt(rawColor)] = rawColor;
+        pixelCounter += 4;
+      }
+      currentColumn = 0;
+    }
+
+    return Object.keys(colors).map(k => colors[k]);
+  }
+
 
 
   // --- tile validation ---

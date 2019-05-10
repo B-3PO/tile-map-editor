@@ -24,6 +24,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     this.bound_onPaletteChange = this.onPaletteChange.bind(this);
     this.bound_paletteTileClick = this.paletteTileClick.bind(this);
     this.bound_applyChanges = this.applyChanges.bind(this);
+    this.bound_fixTile = this.fixTile.bind(this);
     this.addEvents();
   }
 
@@ -59,6 +60,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     const paletteTiles = [...this.shadowRoot.querySelectorAll('.palette-tile')];
     paletteTiles.forEach(el => el.addEventListener('click', this.bound_paletteTileClick));
     if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
+    if (this.shadowRoot.querySelector('#fix-tile')) this.shadowRoot.querySelector('#fix-tile').addEventListener('click', this.bound_fixTile);
   }
 
   removeEvents() {
@@ -72,7 +74,8 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
     const paletteTiles = [...this.shadowRoot.querySelectorAll('.palette-tile')];
     paletteTiles.forEach(el => el.removeEventListener('click', this.bound_paletteTileClick));
-    if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
+    if (this.shadowRoot.querySelector('#apply-changes')) this.shadowRoot.querySelector('#apply-changes').removeEventListener('click', this.bound_applyChanges);
+    if (this.shadowRoot.querySelector('#fix-tile')) this.shadowRoot.querySelector('#fix-tile').removeEventListener('click', this.bound_fixTile);
   }
 
   get canvas() {
@@ -155,6 +158,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     this.render();
     this.drawPaletteVariations();
     this.shadowRoot.querySelector('#apply-changes').addEventListener('click', this.bound_applyChanges);
+    this.shadowRoot.querySelector('#fix-tile').addEventListener('click', this.bound_fixTile);
   }
 
   drawTile(selector, palette) {
@@ -190,8 +194,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
         }
       }
     }
-
-    if (!palette) this.noPalettePalette = Object.keys(noPaletttePalette).map(k => noPaletttePalette[k]);
   }
 
   createTempPalette() {
@@ -208,7 +210,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   drawPaletteVariations() {
     this.clearTiles();
-    this.noPalettePalette = undefined;
 
     // draw current tile in selected spot
     this.drawTile('#selected-tile-canvas', this.selectedPalette);
@@ -216,20 +217,13 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     this.paletteTool.palettes.forEach((palette, i) => {
       this.drawTile(`#palette-tile-canvas-${i}`, palette);
     });
-
-    if (this.noPalettePalette) {
-      this.drawTile('#palette-tile-canvas-no-palette', this.noPalettePalette);
-      this.shadowRoot.querySelector('#palette-tile-canvas-no-palette').style.display = 'block';
-      this.shadowRoot.querySelector('#no-palette-palette-display').style.display = 'block';
-      this.shadowRoot.querySelector('#no-palette-palette-display').colors = this.noPalettePalette;
-    }
   }
 
   clearTiles() {
     this.shadowRoot.querySelector('#selected-tile-canvas').width = this.tileDisplayWidth;
     this.paletteTool.palettes.forEach((palette, i) => {
       this.shadowRoot.querySelector(`#palette-tile-canvas-${i}`).width = this.tileDisplayWidth;
-    });
+    })
   }
 
   onPaletteChange(e) {
@@ -240,6 +234,12 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   applyChanges(e) {
     this.canvas.drawTile(this.selected, this.selectedTileData);
+  }
+
+  fixTile() {
+    this.shadowRoot.querySelector('div').insertAdjacentHTML('afterbegin', `<tile-palette-fixer tile-width="${this.canvas.tileWidth}" tile-height="${this.canvas.tileHeight}"></tile-palette-fixer>`);
+    const el = this.shadowRoot.querySelector('tile-palette-fixer');
+    el.setData(this.selected, this.tileData, this.canvas.getAllColors(), this.canvas);
   }
 
   styles() {
@@ -336,6 +336,11 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
       button {
         cursor: pointer;
       }
+
+      #fix-tile {
+        width: 80px;
+        margin-right: 24px;
+      }
     `;
   }
 
@@ -368,8 +373,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
                 ${this.paletteTool.palettes.map((palette, i) => html`
                   <palette-display class="palette-displays"></palette-display>
                 `).join('\n')}
-
-                <palette-display id="no-palette-palette-display" style="display:none;" class="palette-displays"></palette-display>
               </div>
               <div class="row">
                 <canvas id="selected-tile-canvas" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
@@ -377,7 +380,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
                 ${this.paletteTool.palettes.map((palette, i) => html`
                   <canvas id="palette-tile-canvas-${i}" class="palette-tile" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}"></canvas>
                 `).join('\n')}
-                <canvas id="palette-tile-canvas-no-palette" class="palette-tile" width="${this.tileDisplayWidth}" height="${this.tileDisplayHeight}" style="display:none;"></canvas>
+                <button id="fix-tile">Fix tile</button>
                 <button id="apply-changes">Apply change</button>
               </div>
             `

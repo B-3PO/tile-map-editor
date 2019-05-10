@@ -14,6 +14,7 @@ require('./components/tile-palette-validator.js');
 require('./components/palette-display.js');
 require('./components/save-dialog.js');
 require('./components/upload-dialog.js');
+require('./components/tile-palette-fixer.js');
 
 global.loadFolder('src/global');
 
