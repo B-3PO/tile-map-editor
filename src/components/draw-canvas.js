@@ -330,6 +330,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.cursor.style.height = `${this.scale}px`;
     this.cursor.style.backgroundColor = this.color;
     this.cursor.style.border = '1px solid #DDD';
+    this.cursor.style.marginTop = 0;
   }
 
   drawPencilCursor() {
@@ -350,6 +351,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.cursor.style.width = `${this.tileWidth * this.scale}px`;
     this.cursor.style.height = `${this.tileWidth * this.scale}px`;
     this.cursor.style.border = 'none';
+    this.cursor.style.marginTop = 0;
     this.redValidationCursor();
   }
 
@@ -364,6 +366,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   clearCursor() {
     this.cursor.style.backgroundColor = 'rgba(0, 0, 0, 0)';
     this.cursor.style.border = 'none';
+    this.cursor.style.backgroundColor = undefined;
+    this.cursor.style.background = undefined;
+    this.cursor.style.backgroundRepeat = undefined;
+    this.cursor.style.backgroundSize = undefined;
+    this.cursor.style.width = undefined;
+    this.cursor.style.height = undefined;
+    this.cursor.style.marginTop = 0;
   }
 
 

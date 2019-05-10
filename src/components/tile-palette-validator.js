@@ -240,6 +240,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     this.shadowRoot.querySelector('div').insertAdjacentHTML('afterbegin', `<tile-palette-fixer tile-width="${this.canvas.tileWidth}" tile-height="${this.canvas.tileHeight}"></tile-palette-fixer>`);
     const el = this.shadowRoot.querySelector('tile-palette-fixer');
     el.setData(this.selected, this.tileData, this.canvas.getAllColors(), this.canvas);
+    // TODO allow palette to be set
   }
 
   styles() {
