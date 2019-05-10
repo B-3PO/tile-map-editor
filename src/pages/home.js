@@ -9,6 +9,8 @@ module.exports = class Home extends Page {
     this.canvasHeight = 144;
     this.scale = 4;
     this.disableEntry = true;
+    this.canvasPlaneX = 0;
+    this.canvasPlaneY = 0;
   }
 
   connectedCallback() {
@@ -27,12 +29,22 @@ module.exports = class Home extends Page {
 
     this.tilePaletteValidator.canvas = this.canvas;
     this.tilePaletteValidator.paletteTool = this.paletteTool;
+
+    this.bound_onKeyPress = this.onKeyPress.bind(this);
+    this.bound_onKeyRelease = this.onKeyRelease.bind(this);
+    this.bound_onMouseMove = this.onMouseMove.bind(this);
+    document.addEventListener('keydown', this.bound_onKeyPress);
+    document.addEventListener('keyup', this.bound_onKeyRelease);
+    document.addEventListener('mousemove', this.bound_onMouseMove);
   }
 
   disconnectedCallback() {
     this.paletteTool.removeEventListener('change', this.bound_paletteChange);
     if (!this.disableEntry) this.entryDialog.removeEventListener('create', this.bound_onCreate);
     this.canvas.removeEventListener('colorPicked', this.bound_onColorPick);
+    document.removeEventListener('keydown', this.bound_onKeyPress);
+    document.removeEventListener('keyup', this.bound_onKeyRelease);
+    document.removeEventListener('mousemove', this.bound_onMouseMove);
   }
 
   get title() {
@@ -87,8 +99,10 @@ module.exports = class Home extends Page {
     const canvasPlane = document.querySelector('.canvas-plane');
     const containerBounds = document.querySelector('.canvas-container').getBoundingClientRect();
     const canvasBounds = this.canvas.getBoundingClientRect();
-    canvasPlane.style.left = `${(containerBounds.width / 2) - (canvasBounds.width / 2)}px`;
-    canvasPlane.style.top = `${(containerBounds.height / 2) - (canvasBounds.height / 2)}px`;
+    this.canvasPlaneX = (containerBounds.width / 2) - (canvasBounds.width / 2);
+    this.canvasPlaneY = (containerBounds.height / 2) - (canvasBounds.height / 2);
+    canvasPlane.style.left = `${this.canvasPlaneX}px`;
+    canvasPlane.style.top = `${this.canvasPlaneY}px`;
   }
 
   scaleCanvas(scale) {
@@ -127,6 +141,33 @@ module.exports = class Home extends Page {
 
   onColorPick(e) {
     this.paletteTool.color = e.detail.color;
+  }
+
+  onKeyPress(e) {
+    switch (e.keyCode) {
+      case 32:
+        this.spacePressed = true;
+        break;
+    }
+  }
+
+  onKeyRelease(e) {
+    console.log(e.keyCode);
+    switch (e.keyCode) {
+      case 32:
+        this.spacePressed = false;
+        break;
+    }
+  }
+
+  onMouseMove(e) {
+    if (this.spacePressed) {
+      const canvasPlane = document.querySelector('.canvas-plane');
+      this.canvasPlaneX += e.movementX;
+      this.canvasPlaneY += e.movementY;
+      canvasPlane.style.left = `${this.canvasPlaneX}px`;
+      canvasPlane.style.top = `${this.canvasPlaneY}px`;
+    }
   }
 
   template() {
