@@ -17,6 +17,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     this.tileWidth_ = parseInt(this.getAttribute('tile-width') || 8);
     this.tileHeight_ = parseInt(this.getAttribute('tile-height') || 8);
     this.bound_ok = this.ok.bind(this);
+    this.bound_fixAll = this.fixAll.bind(this);
     this.bound_cancel = this.cancel.bind(this);
     this.bound_conversionClick = this.conversionClick.bind(this);
     this.bound_colorClick = this.colorClick.bind(this);
@@ -44,6 +45,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
 
   addEvents() {
     this.shadowRoot.querySelector('#ok').addEventListener('click', this.bound_ok);
+    this.shadowRoot.querySelector('#all').addEventListener('click', this.bound_fixAll);
     this.shadowRoot.querySelector('#cancel').addEventListener('click', this.bound_cancel);
     this.shadowRoot.querySelector('.conversion-container').addEventListener('click', this.bound_conversionClick);
     this.shadowRoot.querySelector('.colors-container').addEventListener('click', this.bound_colorClick);
@@ -53,6 +55,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
 
   removeEvents() {
     this.shadowRoot.querySelector('#ok').removeEventListener('click', this.bound_ok);
+    this.shadowRoot.querySelector('#all').removeEventListener('click', this.bound_fixAll);
     this.shadowRoot.querySelector('#cancel').removeEventListener('click', this.bound_cancel);
     this.shadowRoot.querySelector('.conversion-container').removeEventListener('click', this.bound_conversionClick);
     this.shadowRoot.querySelector('.colors-container').removeEventListener('click', this.bound_colorClick);
@@ -192,11 +195,28 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
 
   ok() {
     this.drawCanvas.drawTile(this.selected, this.convertedTileData);
+    this.dispatchChange();
+    this.remove();
+  }
+
+  fixAll() {
+    const originalColors = this.colors.reduce((a, c, i) => {
+      a[this.drawCanvas.RGBAtoInt(c)] = this.colorConversions[i] || this.colors[i];
+      return a;
+    }, {})
+    this.drawCanvas.remapTilesPalette(originalColors);
+    this.dispatchChange();
     this.remove();
   }
 
   cancel() {
     this.remove();
+  }
+
+  dispatchChange() {
+    this.dispatchEvent(new CustomEvent('change', {
+      detail: {}
+    }));
   }
 
   styles() {
@@ -297,7 +317,8 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
         background-color: #EEE;
       }
 
-      #ok {
+      #ok,
+      #all {
         margin-right: 6px;
       }
 
@@ -389,7 +410,8 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
           </div>
 
           <div class="row">
-            <button id="ok">OK</button>
+            <button id="ok">Update</button>
+            <button id="all">Update All</button>
             <button id="cancel">Cancel</button>
           </div>
         </div>

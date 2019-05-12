@@ -2200,7 +2200,7 @@
         getNormalizedCanvasData() {
           this.storeCanvas();
       
-          // copy to identical canvis of ientical size
+          // copy to identical canvis of idntical size
           const tempCanvas = this.tempCanvas;
           tempCanvas.width = this.canvasData.width;
           tempCanvas.height = this.canvasData.height;
@@ -2428,28 +2428,6 @@
         }
       
       
-        // TODO create this
-        drawTile(tileId, tileData) {
-          const ctx = this.backgroundContext;
-          const tileRowCount = this.canvasWidth / this.tileWidth;
-          const startY = Math.floor(tileId / tileRowCount) * this.tileHeight;
-          const startX = (tileId % tileRowCount) * this.tileWidth;
-          const pixelsY = this.tileHeight;
-          const pixelsX = this.tileWidth;
-          let counter = 0;
-          let y = 0;
-          let x;
-      
-          for(; y < pixelsY; y += 1) {
-            for(x = 0; x < pixelsX; x += 1) {
-              ctx.fillStyle = `rgba(${tileData[counter]})`;
-              ctx.fillRect(startX + x, startY + y, 1, 1);
-              counter += 1;
-            }
-          }
-        }
-      
-      
         // --- events enablers ---
       
         enableDrawEvents() {
@@ -2504,6 +2482,95 @@
             }
           }));
         }
+      
+      
+      
+      
+        // ---- Draw Commands ----
+      
+        drawTile(tileId, tileData) {
+          const ctx = this.backgroundContext;
+          const tileRowCount = this.canvasWidth / this.tileWidth;
+          const startY = Math.floor(tileId / tileRowCount) * this.tileHeight;
+          const startX = (tileId % tileRowCount) * this.tileWidth;
+          const pixelsY = this.tileHeight;
+          const pixelsX = this.tileWidth;
+          let counter = 0;
+          let y = 0;
+          let x;
+      
+          for(; y < pixelsY; y += 1) {
+            for(x = 0; x < pixelsX; x += 1) {
+              ctx.fillStyle = `rgba(${tileData[counter]})`;
+              ctx.fillRect(startX + x, startY + y, 1, 1);
+              counter += 1;
+            }
+          }
+        }
+      
+      
+        // --- Tile manipulations ----------------------
+      
+        remapTilesPalette(paletteMap) {
+          const updatesTiles = {};
+          this.forEachTile((tile, i) => {
+            if (this.compareIntPalettes(Object.keys(paletteMap), Object.keys(tile.palette))) {
+              updatesTiles[i] = tile.pixels.map(c => paletteMap[this.RGBAtoInt(c)]);
+            }
+            return tile;
+          });
+      
+          Object.keys(updatesTiles).forEach(key => this.drawTile(parseInt(key), updatesTiles[key]));
+        }
+      
+        compareIntPalettes(a, b) {
+          const lengthB = b.length
+          if (a.length != lengthB) return false;
+      
+          let i = 0;
+          for (; i < lengthB; i += 1) {
+            if (!a.includes(b[i])) return false;
+          }
+      
+          return true;
+        }
+      
+        forEachTile(fn) {
+          this.getTilesArray().forEach(fn);
+        }
+      
+        mapTiles(fn) {
+          return this.getTilesArray().map(fn);
+        }
+      
+        getTilesArray() {
+          const pixelData = this.getNormalizedCanvasData().data;
+          const width = this.canvasWidth;
+          const height = this.canvasHeight;
+          const tileWidth = this.gridSize.x;
+          const tileHeight = this.gridSize.y;
+          const tileRowCount = width / tileWidth;
+          const tiles = [];
+          let currentRow = 0;
+          let pixelCounter = 0;
+          let currentColumn;
+          let tileIndex;
+          let rawColor;
+      
+          for (; currentRow < height; currentRow += 1) {
+            for (currentColumn = 0; currentColumn < width; currentColumn += 1) {
+              tileIndex = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
+              rawColor = [pixelData[pixelCounter], pixelData[pixelCounter + 1], pixelData[pixelCounter + 2], pixelData[pixelCounter + 3] / 255];
+              if (!tiles[tileIndex]) tiles[tileIndex] = { pixels: [], palette: {} };
+              tiles[tileIndex].pixels.push(rawColor);
+              tiles[tileIndex].palette[this.RGBAtoInt(rawColor)] = rawColor;
+              pixelCounter += 4;
+            }
+          }
+      
+          return tiles;
+        }
+      
       
         styles() {
           return css`
@@ -3798,7 +3865,9 @@
           this.shadowRoot.querySelector('div').insertAdjacentHTML('afterbegin', `<tile-palette-fixer tile-width="${this.canvas.tileWidth}" tile-height="${this.canvas.tileHeight}"></tile-palette-fixer>`);
           const el = this.shadowRoot.querySelector('tile-palette-fixer');
           el.setData(this.selected, this.tileData, this.canvas.getAllColors(), this.canvas);
-          // TODO allow palette to be set
+          el.addEventListener('change', () => {
+            this.onPaletteChange();
+          });
         }
       
         styles() {
@@ -4887,7 +4956,8 @@
         background-color: #EEE;
       }
       
-      #ok {
+      #ok,
+      #all {
         margin-right: 6px;
       }
       
@@ -4967,7 +5037,8 @@
           </div>
       
           <div class="row">
-            <button id="ok">OK</button>
+            <button id="ok">Update</button>
+            <button id="all">Update All</button>
             <button id="cancel">Cancel</button>
           </div>
         </div>
@@ -4992,6 +5063,7 @@
           this.tileWidth_ = parseInt(this.getAttribute('tile-width') || 8);
           this.tileHeight_ = parseInt(this.getAttribute('tile-height') || 8);
           this.bound_ok = this.ok.bind(this);
+          this.bound_fixAll = this.fixAll.bind(this);
           this.bound_cancel = this.cancel.bind(this);
           this.bound_conversionClick = this.conversionClick.bind(this);
           this.bound_colorClick = this.colorClick.bind(this);
@@ -5020,6 +5092,7 @@
       
         addEvents() {
           this.shadowRoot.querySelector('#ok').addEventListener('click', this.bound_ok);
+          this.shadowRoot.querySelector('#all').addEventListener('click', this.bound_fixAll);
           this.shadowRoot.querySelector('#cancel').addEventListener('click', this.bound_cancel);
           this.shadowRoot.querySelector('.conversion-container').addEventListener('click', this.bound_conversionClick);
           this.shadowRoot.querySelector('.colors-container').addEventListener('click', this.bound_colorClick);
@@ -5029,6 +5102,7 @@
       
         removeEvents() {
           this.shadowRoot.querySelector('#ok').removeEventListener('click', this.bound_ok);
+          this.shadowRoot.querySelector('#all').removeEventListener('click', this.bound_fixAll);
           this.shadowRoot.querySelector('#cancel').removeEventListener('click', this.bound_cancel);
           this.shadowRoot.querySelector('.conversion-container').removeEventListener('click', this.bound_conversionClick);
           this.shadowRoot.querySelector('.colors-container').removeEventListener('click', this.bound_colorClick);
@@ -5168,11 +5242,28 @@
       
         ok() {
           this.drawCanvas.drawTile(this.selected, this.convertedTileData);
+          this.dispatchChange();
+          this.remove();
+        }
+      
+        fixAll() {
+          const originalColors = this.colors.reduce((a, c, i) => {
+            a[this.drawCanvas.RGBAtoInt(c)] = this.colorConversions[i] || this.colors[i];
+            return a;
+          }, {})
+          this.drawCanvas.remapTilesPalette(originalColors);
+          this.dispatchChange();
           this.remove();
         }
       
         cancel() {
           this.remove();
+        }
+      
+        dispatchChange() {
+          this.dispatchEvent(new CustomEvent('change', {
+            detail: {}
+          }));
         }
       
         styles() {
@@ -5273,7 +5364,8 @@
               background-color: #EEE;
             }
       
-            #ok {
+            #ok,
+            #all {
               margin-right: 6px;
             }
       
@@ -5365,7 +5457,8 @@
                 </div>
       
                 <div class="row">
-                  <button id="ok">OK</button>
+                  <button id="ok">Update</button>
+                  <button id="all">Update All</button>
                   <button id="cancel">Cancel</button>
                 </div>
               </div>

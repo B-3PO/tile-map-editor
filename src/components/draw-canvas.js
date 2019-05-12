@@ -444,7 +444,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   getNormalizedCanvasData() {
     this.storeCanvas();
 
-    // copy to identical canvis of ientical size
+    // copy to identical canvis of idntical size
     const tempCanvas = this.tempCanvas;
     tempCanvas.width = this.canvasData.width;
     tempCanvas.height = this.canvasData.height;
@@ -672,28 +672,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
 
-  // TODO create this
-  drawTile(tileId, tileData) {
-    const ctx = this.backgroundContext;
-    const tileRowCount = this.canvasWidth / this.tileWidth;
-    const startY = Math.floor(tileId / tileRowCount) * this.tileHeight;
-    const startX = (tileId % tileRowCount) * this.tileWidth;
-    const pixelsY = this.tileHeight;
-    const pixelsX = this.tileWidth;
-    let counter = 0;
-    let y = 0;
-    let x;
-
-    for(; y < pixelsY; y += 1) {
-      for(x = 0; x < pixelsX; x += 1) {
-        ctx.fillStyle = `rgba(${tileData[counter]})`;
-        ctx.fillRect(startX + x, startY + y, 1, 1);
-        counter += 1;
-      }
-    }
-  }
-
-
   // --- events enablers ---
 
   enableDrawEvents() {
@@ -748,6 +726,95 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       }
     }));
   }
+
+
+
+
+  // ---- Draw Commands ----
+
+  drawTile(tileId, tileData) {
+    const ctx = this.backgroundContext;
+    const tileRowCount = this.canvasWidth / this.tileWidth;
+    const startY = Math.floor(tileId / tileRowCount) * this.tileHeight;
+    const startX = (tileId % tileRowCount) * this.tileWidth;
+    const pixelsY = this.tileHeight;
+    const pixelsX = this.tileWidth;
+    let counter = 0;
+    let y = 0;
+    let x;
+
+    for(; y < pixelsY; y += 1) {
+      for(x = 0; x < pixelsX; x += 1) {
+        ctx.fillStyle = `rgba(${tileData[counter]})`;
+        ctx.fillRect(startX + x, startY + y, 1, 1);
+        counter += 1;
+      }
+    }
+  }
+
+
+  // --- Tile manipulations ----------------------
+
+  remapTilesPalette(paletteMap) {
+    const updatesTiles = {};
+    this.forEachTile((tile, i) => {
+      if (this.compareIntPalettes(Object.keys(paletteMap), Object.keys(tile.palette))) {
+        updatesTiles[i] = tile.pixels.map(c => paletteMap[this.RGBAtoInt(c)]);
+      }
+      return tile;
+    });
+
+    Object.keys(updatesTiles).forEach(key => this.drawTile(parseInt(key), updatesTiles[key]));
+  }
+
+  compareIntPalettes(a, b) {
+    const lengthB = b.length
+    if (a.length != lengthB) return false;
+
+    let i = 0;
+    for (; i < lengthB; i += 1) {
+      if (!a.includes(b[i])) return false;
+    }
+
+    return true;
+  }
+
+  forEachTile(fn) {
+    this.getTilesArray().forEach(fn);
+  }
+
+  mapTiles(fn) {
+    return this.getTilesArray().map(fn);
+  }
+
+  getTilesArray() {
+    const pixelData = this.getNormalizedCanvasData().data;
+    const width = this.canvasWidth;
+    const height = this.canvasHeight;
+    const tileWidth = this.gridSize.x;
+    const tileHeight = this.gridSize.y;
+    const tileRowCount = width / tileWidth;
+    const tiles = [];
+    let currentRow = 0;
+    let pixelCounter = 0;
+    let currentColumn;
+    let tileIndex;
+    let rawColor;
+
+    for (; currentRow < height; currentRow += 1) {
+      for (currentColumn = 0; currentColumn < width; currentColumn += 1) {
+        tileIndex = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
+        rawColor = [pixelData[pixelCounter], pixelData[pixelCounter + 1], pixelData[pixelCounter + 2], pixelData[pixelCounter + 3] / 255];
+        if (!tiles[tileIndex]) tiles[tileIndex] = { pixels: [], palette: {} };
+        tiles[tileIndex].pixels.push(rawColor);
+        tiles[tileIndex].palette[this.RGBAtoInt(rawColor)] = rawColor;
+        pixelCounter += 4;
+      }
+    }
+
+    return tiles;
+  }
+
 
   styles() {
     return css`
