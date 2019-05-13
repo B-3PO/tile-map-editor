@@ -539,14 +539,15 @@
           let match = true;
       
           for (; i < palleteLength; i += 1) {
+            match = true;
             for (j = 0; j < tileColorLength; j += 1) {
-              if (!palettes[i].includes(tileColors[j])) match = false;
+              if (!palettes[i].includes(tileColors[j])) {
+                match = false;
+              }
             }
       
             if (match === true) return i;
           }
-      
-          return undefined;
         }
       
         convertRGBAArrToInt(arr) {
@@ -1403,12 +1404,12 @@
         get palettes() {
           let change = false;
           if (!this.palettes_) this.palettes_ = [...new Array(this.count)].map(() => this.generateDefaultPalette());
-          if (this.palettes_.length < this.colorCount) {
-            this.palettes_ = this.palettes_.concat([...new Array(this.colorCount - this.palettes_.length)].map(() => this.generateDefaultPalette()));
+          if (this.palettes_.length < this.count) {
+            this.palettes_ = this.palettes_.concat([...new Array(this.count - this.palettes_.length)].map(() => this.generateDefaultPalette()));
             change = true;
           }
-          if (this.palettes_.length > this.colorCount) {
-            [...new Array(this.palettes_.length - this.colorCount)].forEach(() => this.palettes_.pop());
+          if (this.palettes_.length > this.count) {
+            [...new Array(this.palettes_.length - this.count)].forEach(() => this.palettes_.pop());
             change = true;
           }
           if (change) this.palettes_.forEach(p => this.updatePalette(p));
@@ -1478,7 +1479,7 @@
           const palettes = this.palettes;
           palettes[paletteId] = palette;
           palette.forEach((c, i) => {
-            const el = this.shadowRoot.querySelector(`#${paletteId}:${i}`);
+            const el = this.shadowRoot.querySelector(`[id="${paletteId}:${i}"]`);
             el.style.backgroundColor = this.convertArrToRBGA(c);
           });
           this.debounced_dispatchPaletteChange();
@@ -3223,10 +3224,10 @@
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
               <label for="tile-count-x">x</label>
-              <input name="tile-count-x" type="number" value="20" >
+              <input name="tile-count-x" type="number" value="16" >
               <span>Tiles</span>
               <label for="tile-count-y">y</label>
-              <input name="tile-count-y" type="number" value="18" >
+              <input name="tile-count-y" type="number" value="16" >
               <span>Tiles</span>
             </div>
       
@@ -3244,7 +3245,7 @@
             <div class="sub-header">Palettes</div>
             <div class="control-container">
               <label for="palette-count">count </label>
-              <input name="palette-count" type="number" value="1" >
+              <input name="palette-count" type="number" value="2" >
               <br/>
               <label for="palette-color-count">colors</label>
               <input name="palette-color-count" type="number" value="4" >
@@ -3481,10 +3482,10 @@
                   <div class="sub-header">Canvas size</div>
                   <div class="control-container">
                     <label for="tile-count-x">x</label>
-                    <input name="tile-count-x" type="number" value="20" >
+                    <input name="tile-count-x" type="number" value="16" >
                     <span>Tiles</span>
                     <label for="tile-count-y">y</label>
-                    <input name="tile-count-y" type="number" value="18" >
+                    <input name="tile-count-y" type="number" value="16" >
                     <span>Tiles</span>
                   </div>
       
@@ -3502,7 +3503,7 @@
                   <div class="sub-header">Palettes</div>
                   <div class="control-container">
                     <label for="palette-count">count </label>
-                    <input name="palette-count" type="number" value="1" >
+                    <input name="palette-count" type="number" value="2" >
                     <br/>
                     <label for="palette-color-count">colors</label>
                     <input name="palette-color-count" type="number" value="4" >
@@ -5631,9 +5632,19 @@
           this.paletteTool.colorCount = e.detail.palette.colorCount;
           this.paletteTool.count = e.detail.palette.count;
       
-          // this.paletteTool.setPalette(0, [
-          //   []
-          // ])
+          this.paletteTool.setPalette(0, [
+            [198, 209, 211, 1],
+            [81, 125, 136, 1],
+            [139, 133, 109, 1],
+            [0, 0, 0, 1]
+          ]);
+      
+          this.paletteTool.setPalette(1, [
+            [139, 133, 109, 1],
+            [34, 34, 34, 1],
+            [11, 13, 13, 1],
+            [0, 0, 0, 1]
+          ]);
         }
       
         centerCanvas() {
@@ -5693,7 +5704,6 @@
         }
       
         onKeyRelease(e) {
-          console.log(e.keyCode);
           switch (e.keyCode) {
             case 32:
               this.spacePressed = false;

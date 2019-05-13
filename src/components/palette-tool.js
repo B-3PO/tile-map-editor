@@ -102,12 +102,12 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   get palettes() {
     let change = false;
     if (!this.palettes_) this.palettes_ = [...new Array(this.count)].map(() => this.generateDefaultPalette());
-    if (this.palettes_.length < this.colorCount) {
-      this.palettes_ = this.palettes_.concat([...new Array(this.colorCount - this.palettes_.length)].map(() => this.generateDefaultPalette()));
+    if (this.palettes_.length < this.count) {
+      this.palettes_ = this.palettes_.concat([...new Array(this.count - this.palettes_.length)].map(() => this.generateDefaultPalette()));
       change = true;
     }
-    if (this.palettes_.length > this.colorCount) {
-      [...new Array(this.palettes_.length - this.colorCount)].forEach(() => this.palettes_.pop());
+    if (this.palettes_.length > this.count) {
+      [...new Array(this.palettes_.length - this.count)].forEach(() => this.palettes_.pop());
       change = true;
     }
     if (change) this.palettes_.forEach(p => this.updatePalette(p));
@@ -177,7 +177,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     const palettes = this.palettes;
     palettes[paletteId] = palette;
     palette.forEach((c, i) => {
-      const el = this.shadowRoot.querySelector(`#${paletteId}:${i}`);
+      const el = this.shadowRoot.querySelector(`[id="${paletteId}:${i}"]`);
       el.style.backgroundColor = this.convertArrToRBGA(c);
     });
     this.debounced_dispatchPaletteChange();

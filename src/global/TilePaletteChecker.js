@@ -67,14 +67,15 @@ module.exports = class TilePaletteChecker {
     let match = true;
 
     for (; i < palleteLength; i += 1) {
+      match = true;
       for (j = 0; j < tileColorLength; j += 1) {
-        if (!palettes[i].includes(tileColors[j])) match = false;
+        if (!palettes[i].includes(tileColors[j])) {
+          match = false;
+        }
       }
 
       if (match === true) return i;
     }
-
-    return undefined;
   }
 
   convertRGBAArrToInt(arr) {
