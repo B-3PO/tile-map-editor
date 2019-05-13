@@ -5499,7 +5499,7 @@
           this.canvasWidth = 160;
           this.canvasHeight = 144;
           this.scale = 4;
-          this.disableEntry = true;
+          this.disableEntry = false;
           this.canvasPlaneX = 0;
           this.canvasPlaneY = 0;
         }
@@ -5723,6 +5723,8 @@
 
   <body>
     <render-block-page>
+      <entry-dialog></entry-dialog>
+      
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button" onclick="$Home.pencilTool();">edit</div>

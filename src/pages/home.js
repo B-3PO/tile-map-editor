@@ -8,7 +8,7 @@ module.exports = class Home extends Page {
     this.canvasWidth = 160;
     this.canvasHeight = 144;
     this.scale = 4;
-    this.disableEntry = true;
+    this.disableEntry = false;
     this.canvasPlaneX = 0;
     this.canvasPlaneY = 0;
   }
