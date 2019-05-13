@@ -173,6 +173,16 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     }
   }
 
+  setPalette(paletteId, palette) {
+    const palettes = this.palettes;
+    palettes[paletteId] = palette;
+    palette.forEach((c, i) => {
+      const el = this.shadowRoot.querySelector(`#${paletteId}:${i}`);
+      el.style.backgroundColor = this.convertArrToRBGA(c);
+    });
+    this.debounced_dispatchPaletteChange();
+  }
+
   convertArrToRBGA(arr) {
     return `rgba(${arr.join(',')})`;
   }
@@ -194,6 +204,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     this.selectedColorLocation = this.selectedColorElement.getAttribute('id').split(':').map(n => parseInt(n));
     this.render();
     this.dispatchChange();
+    this.colorPicker.color = this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]];
   }
 
   // select alt color

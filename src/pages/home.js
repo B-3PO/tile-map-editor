@@ -93,6 +93,10 @@ module.exports = class Home extends Page {
     // set palette
     this.paletteTool.colorCount = e.detail.palette.colorCount;
     this.paletteTool.count = e.detail.palette.count;
+
+    // this.paletteTool.setPalette(0, [
+    //   []
+    // ])
   }
 
   centerCanvas() {

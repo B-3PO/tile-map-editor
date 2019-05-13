@@ -78,17 +78,45 @@ customElements.define('color-picker', class extends HTMLElementExtended {
     return [...values.slice(0, 3).map(v => v * multiplier), 1];
   }
 
-  // set color(arr) {
-  //   this.pickerColor = `rgba(${arr.join(',')})`;
-  //
-  //   // const x = this.pickerX - this.colorStripWidth;
-  //   // const y = this.pickerY;
-  //   // this.pickerColor = `rgba(${[...this.colorBlockContext.getImageData(x, y, 1, 1).data].slice(0, 3).join(',')},1)`;
-  //   // if (x === 0 && y === 0) this.pickerColor = 'rgba(255,255,255,0)';
-  //   this.picker.style.backgroundColor = this.pickerColor;
-  //   this.setRGBInputs();
-  //   this.handleChange();
-  // }
+  set color(arr) {
+    this.pickerColor = `rgba(${arr.join(',')})`;
+    const { x, y } = this.rgbToHsl(arr);
+    this.setPickerPosition(x, y);
+    this.picker.style.backgroundColor = this.pickerColor;
+    this.setRGBInputs();
+    this.handleChange();
+  }
+
+  rgbToHsl([r, g, b]){
+    r /= 255, g /= 255, b /= 255;
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0; // achromatic
+    } else {
+      let d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h /= 6;
+    }
+
+    return {
+      x: parseInt(h * this.colorBlockSize),
+      y: parseInt((1 - l) * this.colorBlockSize)
+    };
+}
 
   get maxRGBRange() {
     return this.maxRGBRange_ || 255;
@@ -167,11 +195,8 @@ customElements.define('color-picker', class extends HTMLElementExtended {
     this.handleChange();
   }
 
-  updatePicker(x, y) {
-    const rect = this.colorBlock.getBoundingClientRect();
-    x -= rect.left;
-    x += this.colorStripWidth;
-    y -= rect.top;
+  setPickerPosition(x, y) {
+    console.log(x, y);
     if (x > this.colorBlockSize + this.colorStripWidth - 1) x = this.colorBlockSize + this.colorStripWidth - 1;
     if (x < this.colorStripWidth) x = this.colorStripWidth;
     if (y < 0) y = 0;
@@ -180,12 +205,22 @@ customElements.define('color-picker', class extends HTMLElementExtended {
     // get image data for color
     this.pickerX = x;
     this.pickerY = y;
+    console.log(x, y);
 
     // offset picker
     if (x < this.colorStripWidth + 5) x = this.colorStripWidth + 5;
     // set picker position
     this.picker.style.left = `${x}px`;
     this.picker.style.top = `${y}px`;
+  }
+
+  updatePicker(x, y) {
+    const rect = this.colorBlock.getBoundingClientRect();
+    x -= rect.left;
+    x += this.colorStripWidth;
+    y -= rect.top;
+
+    this.setPickerPosition(x, y);
     this.setPickerColor();
   }
 
