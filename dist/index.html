@@ -234,10 +234,12 @@
           const tilePaletteArray = this.createTilePaletteArray();
           const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
           const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
+          console.log(tileArray);
           const dedupedTiles = this.dedupTiles(tileArray);
+          console.log(dedupedTiles);
           const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
           const tileMap = this.createTileMap(dedupedTiles);
-          return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
+          // return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
         }
       
         createPaletteForFile() {
@@ -258,33 +260,64 @@
           const pixelsX = this.canvas.width;
           const tileWidth = this.canvas.tileWidth;
           const tileHeight = this.canvas.tileHeight;
+          const tileRowCount = pixelsX / tileWidth;
           const tilesX = pixelsX / tileWidth;
           const tilesY = pixelsY / tileHeight;
           const pixelsPerTile = tileWidth * tileHeight;
       
           // create empty nested array for all tiles
           let arr = [...new Array(tilesX * tilesY)].map(() => []);
-          let y = 0;
-          let x;
-          let z;
+          let pixelCounter = 0;
+          let currentRow = 0;
+          let currentColumn;
           let tile;
-          let startingPixel;
       
-          // loop through tiles
-          for (;y < tilesY; y += 1) {
-            for (x = 0; x < tilesX; x += 1) {
-              tile = (y * tilesX) + x;
       
-              // loop thorugh each row in tile
-              // here we are going to process each row and store it in sub tile array
-              for(z = 0; z < tileHeight; z += 1) {
-                // get staring pixel for flat pixel data array
-                startingPixel = tile * pixelsPerTile + (z * tileWidth);
-                arr[tile] = arr[tile].concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
-                // arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
-              }
+          for (; currentRow < pixelsY; currentRow += 1) {
+            for (currentColumn = 0; currentColumn < pixelsX; currentColumn += 1) {
+              tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
+              arr[tile] = arr[tile].concat(this.createTilePixel(pixelData[pixelCounter]));
+              pixelCounter += 1;
             }
           }
+      
+      
+          // TODO loop thruogh each row and run createTilePixelRow
+          const arrLength = arr.length;
+          let i = 0;
+          let j;
+          let tempArr;
+          let startingPixel;
+      
+          for(; i < arrLength; i += 1) {
+            tempArr = [];
+            for (j = 0; j < tileRowCount; j += 1) {
+              startingPixel = i * pixelsPerTile + (z * tileWidth);
+              tempArr = tempArr.concat(this.createTilePixelRow(arr[i].slice(startingPixel, startingPixel + tileWidth)));
+            }
+      
+            arr[i] = tempArr;
+          }
+      
+          // TODO loop thruogh each row and run createTilePixelRow
+      
+      
+          // // loop through tiles
+          // for (;y < tilesY; y += 1) {
+          //   for (x = 0; x < tilesX; x += 1) {
+          //     tile = (y * tilesX) + x;
+          //
+          //     // loop thorugh each row in tile
+          //     // here we are going to process each row and store it in sub tile array
+          //     for(z = 0; z < tileHeight; z += 1) {
+          //       // get staring pixel for flat pixel data array
+          //       startingPixel = tile * pixelsPerTile + (z * tileWidth);
+          //       console.log(startingPixel, startingPixel + tileWidth);
+          //       arr[tile] = arr[tile].concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+          //       // arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+          //     }
+          //   }
+          // }
       
           return arr;
         }
@@ -455,7 +488,7 @@
           `;
         }
       
-        getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = c) {
+        getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = 'c') {
           return stripIndents`
             /*
              ${fileName}.${type}
@@ -911,7 +944,6 @@
         }
       
         setPickerPosition(x, y) {
-          console.log(x, y);
           if (x > this.colorBlockSize + this.colorStripWidth - 1) x = this.colorBlockSize + this.colorStripWidth - 1;
           if (x < this.colorStripWidth) x = this.colorStripWidth;
           if (y < 0) y = 0;
@@ -920,7 +952,6 @@
           // get image data for color
           this.pickerX = x;
           this.pickerY = y;
-          console.log(x, y);
       
           // offset picker
           if (x < this.colorStripWidth + 5) x = this.colorStripWidth + 5;
@@ -3224,10 +3255,10 @@
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
               <label for="tile-count-x">x</label>
-              <input name="tile-count-x" type="number" value="16" >
+              <input name="tile-count-x" type="number" value="2" >
               <span>Tiles</span>
               <label for="tile-count-y">y</label>
-              <input name="tile-count-y" type="number" value="16" >
+              <input name="tile-count-y" type="number" value="2" >
               <span>Tiles</span>
             </div>
       
@@ -3245,7 +3276,7 @@
             <div class="sub-header">Palettes</div>
             <div class="control-container">
               <label for="palette-count">count </label>
-              <input name="palette-count" type="number" value="2" >
+              <input name="palette-count" type="number" value="1" >
               <br/>
               <label for="palette-color-count">colors</label>
               <input name="palette-color-count" type="number" value="4" >
@@ -3482,10 +3513,10 @@
                   <div class="sub-header">Canvas size</div>
                   <div class="control-container">
                     <label for="tile-count-x">x</label>
-                    <input name="tile-count-x" type="number" value="16" >
+                    <input name="tile-count-x" type="number" value="2" >
                     <span>Tiles</span>
                     <label for="tile-count-y">y</label>
-                    <input name="tile-count-y" type="number" value="16" >
+                    <input name="tile-count-y" type="number" value="2" >
                     <span>Tiles</span>
                   </div>
       
@@ -3503,7 +3534,7 @@
                   <div class="sub-header">Palettes</div>
                   <div class="control-container">
                     <label for="palette-count">count </label>
-                    <input name="palette-count" type="number" value="2" >
+                    <input name="palette-count" type="number" value="1" >
                     <br/>
                     <label for="palette-color-count">colors</label>
                     <input name="palette-color-count" type="number" value="4" >
@@ -4338,7 +4369,7 @@
         }
       
         get fileName() {
-          return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}.${this.extension}`;
+          return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}`;
         }
       
         get canvas() {
@@ -4382,7 +4413,7 @@
       
           } else {
             const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-            const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName);
+            const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName.replace(/-/g, ''));
       
             const link = document.createElement('a');
             link.download = `${this.fileName}.h`;

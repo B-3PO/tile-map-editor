@@ -22,10 +22,12 @@ module.exports = class CanvasToGameboyC {
     const tilePaletteArray = this.createTilePaletteArray();
     const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
     const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
+    console.log(tileArray);
     const dedupedTiles = this.dedupTiles(tileArray);
+    console.log(dedupedTiles);
     const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
     const tileMap = this.createTileMap(dedupedTiles);
-    return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
+    // return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
   }
 
   createPaletteForFile() {
@@ -46,33 +48,64 @@ module.exports = class CanvasToGameboyC {
     const pixelsX = this.canvas.width;
     const tileWidth = this.canvas.tileWidth;
     const tileHeight = this.canvas.tileHeight;
+    const tileRowCount = pixelsX / tileWidth;
     const tilesX = pixelsX / tileWidth;
     const tilesY = pixelsY / tileHeight;
     const pixelsPerTile = tileWidth * tileHeight;
 
     // create empty nested array for all tiles
     let arr = [...new Array(tilesX * tilesY)].map(() => []);
-    let y = 0;
-    let x;
-    let z;
+    let pixelCounter = 0;
+    let currentRow = 0;
+    let currentColumn;
     let tile;
-    let startingPixel;
 
-    // loop through tiles
-    for (;y < tilesY; y += 1) {
-      for (x = 0; x < tilesX; x += 1) {
-        tile = (y * tilesX) + x;
 
-        // loop thorugh each row in tile
-        // here we are going to process each row and store it in sub tile array
-        for(z = 0; z < tileHeight; z += 1) {
-          // get staring pixel for flat pixel data array
-          startingPixel = tile * pixelsPerTile + (z * tileWidth);
-          arr[tile] = arr[tile].concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
-          // arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
-        }
+    for (; currentRow < pixelsY; currentRow += 1) {
+      for (currentColumn = 0; currentColumn < pixelsX; currentColumn += 1) {
+        tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
+        arr[tile] = arr[tile].concat(this.createTilePixel(pixelData[pixelCounter]));
+        pixelCounter += 1;
       }
     }
+
+
+    // TODO loop thruogh each row and run createTilePixelRow
+    const arrLength = arr.length;
+    let i = 0;
+    let j;
+    let tempArr;
+    let startingPixel;
+
+    for(; i < arrLength; i += 1) {
+      tempArr = [];
+      for (j = 0; j < tileRowCount; j += 1) {
+        startingPixel = i * pixelsPerTile + (z * tileWidth);
+        tempArr = tempArr.concat(this.createTilePixelRow(arr[i].slice(startingPixel, startingPixel + tileWidth)));
+      }
+
+      arr[i] = tempArr;
+    }
+
+    // TODO loop thruogh each row and run createTilePixelRow
+
+
+    // // loop through tiles
+    // for (;y < tilesY; y += 1) {
+    //   for (x = 0; x < tilesX; x += 1) {
+    //     tile = (y * tilesX) + x;
+    //
+    //     // loop thorugh each row in tile
+    //     // here we are going to process each row and store it in sub tile array
+    //     for(z = 0; z < tileHeight; z += 1) {
+    //       // get staring pixel for flat pixel data array
+    //       startingPixel = tile * pixelsPerTile + (z * tileWidth);
+    //       console.log(startingPixel, startingPixel + tileWidth);
+    //       arr[tile] = arr[tile].concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+    //       // arr = arr.concat(this.createTilePixelRow(pixelData.slice(startingPixel, startingPixel + tileWidth)));
+    //     }
+    //   }
+    // }
 
     return arr;
   }
@@ -243,7 +276,7 @@ module.exports = class CanvasToGameboyC {
     `;
   }
 
-  getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = c) {
+  getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = 'c') {
     return stripIndents`
       /*
        ${fileName}.${type}

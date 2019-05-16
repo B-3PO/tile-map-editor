@@ -196,7 +196,6 @@ customElements.define('color-picker', class extends HTMLElementExtended {
   }
 
   setPickerPosition(x, y) {
-    console.log(x, y);
     if (x > this.colorBlockSize + this.colorStripWidth - 1) x = this.colorBlockSize + this.colorStripWidth - 1;
     if (x < this.colorStripWidth) x = this.colorStripWidth;
     if (y < 0) y = 0;
@@ -205,7 +204,6 @@ customElements.define('color-picker', class extends HTMLElementExtended {
     // get image data for color
     this.pickerX = x;
     this.pickerY = y;
-    console.log(x, y);
 
     // offset picker
     if (x < this.colorStripWidth + 5) x = this.colorStripWidth + 5;

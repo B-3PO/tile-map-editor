@@ -34,7 +34,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
   }
 
   get fileName() {
-    return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}.${this.extension}`;
+    return `${this.shadowRoot.querySelector('input[name="fileName"]').value.split('.')[0]}`;
   }
 
   get canvas() {
@@ -78,7 +78,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
 
     } else {
       const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-      const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName);
+      const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName.replace(/-/g, ''));
 
       const link = document.createElement('a');
       link.download = `${this.fileName}.h`;
