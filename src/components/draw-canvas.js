@@ -699,6 +699,16 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     return this.backgroundCanvas.toDataURL(type);
   }
 
+  getDownloadDataURL(type) {
+    const preScale = this.scale;
+    this.scale = 1;
+
+    const data = this.getDataURL(type);
+
+    this.scale = preScale;
+    return data;
+  }
+
 
 
 

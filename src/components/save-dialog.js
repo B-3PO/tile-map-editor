@@ -70,12 +70,12 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
   downloadFile() {
     if (['imge/gif', 'image/jpg', 'image/png'].includes(this.filetype)) {
       // NOTE https://github.com/mattburns/exiftool.js/
-
       const link = document.createElement('a');
       link.download = this.fileName;
-      link.href = document.querySelector('draw-canvas').getDataURL(this.filetype);
+      link.href = document.querySelector('draw-canvas').getDownloadDataURL(this.filetype);
       link.click();
 
+    // GBDK files
     } else {
       const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
       const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName.replace(/-/g, ''));

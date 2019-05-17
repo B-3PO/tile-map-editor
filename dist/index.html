@@ -400,7 +400,6 @@
         formatFile(fileName, varName, palettes, tilePaletteArray, tileArray, tileMap) {
           const hFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
           const cFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-          console.log(cFile);
           const hMapFile = this.formatHMapFile(fileName, varName, tileMap);
           const cMapFile = this.formatCMapFile(fileName, varName, tileMap);
           return { hFile, cFile, hMapFile, cMapFile };
@@ -2519,6 +2518,16 @@
           return this.backgroundCanvas.toDataURL(type);
         }
       
+        getDownloadDataURL(type) {
+          const preScale = this.scale;
+          this.scale = 1;
+      
+          const data = this.getDataURL(type);
+      
+          this.scale = preScale;
+          return data;
+        }
+      
       
       
       
@@ -4391,12 +4400,12 @@
         downloadFile() {
           if (['imge/gif', 'image/jpg', 'image/png'].includes(this.filetype)) {
             // NOTE https://github.com/mattburns/exiftool.js/
-      
             const link = document.createElement('a');
             link.download = this.fileName;
-            link.href = document.querySelector('draw-canvas').getDataURL(this.filetype);
+            link.href = document.querySelector('draw-canvas').getDownloadDataURL(this.filetype);
             link.click();
       
+          // GBDK files
           } else {
             const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
             const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName.replace(/-/g, ''));
