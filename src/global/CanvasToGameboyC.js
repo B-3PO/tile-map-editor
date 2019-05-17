@@ -22,10 +22,11 @@ module.exports = class CanvasToGameboyC {
     const tilePaletteArray = this.createTilePaletteArray();
     const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
     const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
-    const tileMap = this.createTileMap(tileArray.reduce((a, b, i) => {
+    const flattenedTiles = tileArray.reduce((a, b) => a.concat(b), []);
+    const tileMap = this.createTileMap({ mapping: tileArray.reduce((a, b, i) => {
       a[i] = i;
       return a;
-    }, {}));
+    }, {}) });
     // TODO fix dedup
     // const dedupedTiles = this.dedupTiles(tileArray);
     // const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
@@ -187,6 +188,7 @@ module.exports = class CanvasToGameboyC {
   formatFile(fileName, varName, palettes, tilePaletteArray, tileArray, tileMap) {
     const hFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
     const cFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+    console.log(cFile);
     const hMapFile = this.formatHMapFile(fileName, varName, tileMap);
     const cMapFile = this.formatCMapFile(fileName, varName, tileMap);
     return { hFile, cFile, hMapFile, cMapFile };
