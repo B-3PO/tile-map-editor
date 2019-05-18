@@ -261,6 +261,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       else this.fillPixel(e.clientX, e.clientY, this.color);
     }
 
+    if (this.tool === 'brush') {
+      // right
+      if (e.which !== 1) this.fillSquare(e.clientX, e.clientY, 8, 8, this.altColor);
+      // left
+      else this.fillSquare(e.clientX, e.clientY, 8, 8, this.color);
+    }
+
     if (this.tool === 'colorPicker') {
       this.dispatchColorPick(this.getPixelColor(e.clientX, e.clientY, 1, 1));
     }
@@ -347,6 +354,14 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.cursor.style.marginTop = '-8px';
   }
 
+  drawBrushCursor() {
+    this.cursor.style.width = `${this.scale * 8}px`;
+    this.cursor.style.height = `${this.scale * 8}px`;
+    this.cursor.style.backgroundColor = this.color;
+    this.cursor.style.border = '1px solid #DDD';
+    this.cursor.style.marginTop = 0;
+  }
+
   drawTileValidationCursor() {
     this.cursor.style.width = `${this.tileWidth * this.scale}px`;
     this.cursor.style.height = `${this.tileWidth * this.scale}px`;
@@ -394,6 +409,19 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const ctx = this.backgroundContext;
     ctx.fillStyle = color;
     ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
+  }
+
+  fillSquare(x, y, width, height, color) {
+    const bounds = this.getBoundingClientRect();
+    x -= bounds.left;
+    y -= bounds.top;
+    const [x2, y2] = this.snapToPixel(x, y);
+    x = x2;
+    y = y2;
+
+    const ctx = this.backgroundContext;
+    ctx.fillStyle = color;
+    ctx.fillRect(x / this.scale, y / this.scale, width, height);
   }
 
   getPixelColor(x, y, width, height) {
@@ -598,8 +626,8 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const ctx = this.tileValidationContext;
     ctx.canvas.width = ctx.canvas.width;
 
-    ctx.lineWidth = 0.5;
-    ctx.strokeStyle = 'rgba(238,51,51,0.8)';
+    ctx.lineWidth = 0.75;
+    ctx.strokeStyle = 'rgba(238, 51, 51, 1)';
     this.tileValidation.tileValidationData.forEach(t => {
       if (!t.valid) {
         const y = Math.floor(t.tileId / tileRowCount) * tileHeight;
@@ -727,6 +755,12 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     this.clearCursor();
     this.drawColorPickerCursor();
     this.tool = 'colorPicker';
+  }
+
+  brush() {
+    this.clearCursor();
+    this.drawBrushCursor();
+    this.tool = 'brush';
   }
 
   dispatchColorPick(colorArr) {

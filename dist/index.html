@@ -2080,6 +2080,13 @@
             else this.fillPixel(e.clientX, e.clientY, this.color);
           }
       
+          if (this.tool === 'brush') {
+            // right
+            if (e.which !== 1) this.fillSquare(e.clientX, e.clientY, 8, 8, this.altColor);
+            // left
+            else this.fillSquare(e.clientX, e.clientY, 8, 8, this.color);
+          }
+      
           if (this.tool === 'colorPicker') {
             this.dispatchColorPick(this.getPixelColor(e.clientX, e.clientY, 1, 1));
           }
@@ -2166,6 +2173,14 @@
           this.cursor.style.marginTop = '-8px';
         }
       
+        drawBrushCursor() {
+          this.cursor.style.width = `${this.scale * 8}px`;
+          this.cursor.style.height = `${this.scale * 8}px`;
+          this.cursor.style.backgroundColor = this.color;
+          this.cursor.style.border = '1px solid #DDD';
+          this.cursor.style.marginTop = 0;
+        }
+      
         drawTileValidationCursor() {
           this.cursor.style.width = `${this.tileWidth * this.scale}px`;
           this.cursor.style.height = `${this.tileWidth * this.scale}px`;
@@ -2213,6 +2228,19 @@
           const ctx = this.backgroundContext;
           ctx.fillStyle = color;
           ctx.fillRect(x / this.scale, y / this.scale, 1, 1);
+        }
+      
+        fillSquare(x, y, width, height, color) {
+          const bounds = this.getBoundingClientRect();
+          x -= bounds.left;
+          y -= bounds.top;
+          const [x2, y2] = this.snapToPixel(x, y);
+          x = x2;
+          y = y2;
+      
+          const ctx = this.backgroundContext;
+          ctx.fillStyle = color;
+          ctx.fillRect(x / this.scale, y / this.scale, width, height);
         }
       
         getPixelColor(x, y, width, height) {
@@ -2417,8 +2445,8 @@
           const ctx = this.tileValidationContext;
           ctx.canvas.width = ctx.canvas.width;
       
-          ctx.lineWidth = 0.5;
-          ctx.strokeStyle = 'rgba(238,51,51,0.8)';
+          ctx.lineWidth = 0.75;
+          ctx.strokeStyle = 'rgba(238, 51, 51, 1)';
           this.tileValidation.tileValidationData.forEach(t => {
             if (!t.valid) {
               const y = Math.floor(t.tileId / tileRowCount) * tileHeight;
@@ -2546,6 +2574,12 @@
           this.clearCursor();
           this.drawColorPickerCursor();
           this.tool = 'colorPicker';
+        }
+      
+        brush() {
+          this.clearCursor();
+          this.drawBrushCursor();
+          this.tool = 'brush';
         }
       
         dispatchColorPick(colorArr) {
@@ -3250,10 +3284,10 @@
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
               <label for="tile-count-x">x</label>
-              <input name="tile-count-x" type="number" value="2" >
+              <input name="tile-count-x" type="number" value="16" >
               <span>Tiles</span>
               <label for="tile-count-y">y</label>
-              <input name="tile-count-y" type="number" value="2" >
+              <input name="tile-count-y" type="number" value="16" >
               <span>Tiles</span>
             </div>
       
@@ -3271,7 +3305,7 @@
             <div class="sub-header">Palettes</div>
             <div class="control-container">
               <label for="palette-count">count </label>
-              <input name="palette-count" type="number" value="1" >
+              <input name="palette-count" type="number" value="2" >
               <br/>
               <label for="palette-color-count">colors</label>
               <input name="palette-color-count" type="number" value="4" >
@@ -3508,10 +3542,10 @@
                   <div class="sub-header">Canvas size</div>
                   <div class="control-container">
                     <label for="tile-count-x">x</label>
-                    <input name="tile-count-x" type="number" value="2" >
+                    <input name="tile-count-x" type="number" value="16" >
                     <span>Tiles</span>
                     <label for="tile-count-y">y</label>
-                    <input name="tile-count-y" type="number" value="2" >
+                    <input name="tile-count-y" type="number" value="16" >
                     <span>Tiles</span>
                   </div>
       
@@ -3529,7 +3563,7 @@
                   <div class="sub-header">Palettes</div>
                   <div class="control-container">
                     <label for="palette-count">count </label>
-                    <input name="palette-count" type="number" value="1" >
+                    <input name="palette-count" type="number" value="2" >
                     <br/>
                     <label for="palette-color-count">colors</label>
                     <input name="palette-color-count" type="number" value="4" >
@@ -5717,6 +5751,10 @@
           this.canvas.colorPicker();
         }
       
+        brushTool() {
+          this.canvas.brush();
+        }
+      
         onColorPick(e) {
           this.paletteTool.color = e.detail.color;
         }
@@ -5754,6 +5792,7 @@
             <div class="main-container">
               <div class="tool-bar">
                 <div class="icon-button" onclick="$Home.pencilTool();">edit</div>
+                <div class="icon-button" onclick="$Home.brushTool();">brush</div>
                 <div class="icon-button-svg" onclick="$Home.colorPickerTool();">
                   <img src="eyedropper.svg" alt="color-picker">
                 </div>
@@ -5814,6 +5853,7 @@
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button" onclick="$Home.pencilTool();">edit</div>
+          <div class="icon-button" onclick="$Home.brushTool();">brush</div>
           <div class="icon-button-svg" onclick="$Home.colorPickerTool();">
             <img src="eyedropper.svg" alt="color-picker">
           </div>

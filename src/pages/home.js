@@ -153,6 +153,10 @@ module.exports = class Home extends Page {
     this.canvas.colorPicker();
   }
 
+  brushTool() {
+    this.canvas.brush();
+  }
+
   onColorPick(e) {
     this.paletteTool.color = e.detail.color;
   }
@@ -190,6 +194,7 @@ module.exports = class Home extends Page {
       <div class="main-container">
         <div class="tool-bar">
           <div class="icon-button" onclick="$Home.pencilTool();">edit</div>
+          <div class="icon-button" onclick="$Home.brushTool();">brush</div>
           <div class="icon-button-svg" onclick="$Home.colorPickerTool();">
             <img src="eyedropper.svg" alt="color-picker">
           </div>

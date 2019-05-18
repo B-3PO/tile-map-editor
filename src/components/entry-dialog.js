@@ -213,10 +213,10 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
             <div class="sub-header">Canvas size</div>
             <div class="control-container">
               <label for="tile-count-x">x</label>
-              <input name="tile-count-x" type="number" value="2" >
+              <input name="tile-count-x" type="number" value="16" >
               <span>Tiles</span>
               <label for="tile-count-y">y</label>
-              <input name="tile-count-y" type="number" value="2" >
+              <input name="tile-count-y" type="number" value="16" >
               <span>Tiles</span>
             </div>
 
@@ -234,7 +234,7 @@ customElements.define('entry-dialog', class extends HTMLElementExtended {
             <div class="sub-header">Palettes</div>
             <div class="control-container">
               <label for="palette-count">count </label>
-              <input name="palette-count" type="number" value="1" >
+              <input name="palette-count" type="number" value="2" >
               <br/>
               <label for="palette-color-count">colors</label>
               <input name="palette-color-count" type="number" value="4" >
