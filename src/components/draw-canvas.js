@@ -555,7 +555,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
       }
       currentColumn = 0;
     }
-
+    console.log(rawTileData, rawTileData.length);
     return {
       rawPixelData,
       tileColors,

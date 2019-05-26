@@ -5,8 +5,8 @@ module.exports = class CanvasToGameboyC {
   constructor(canvasElement, paletteToolElement) {
     this.canvas = canvasElement;
     this.paletteTool = paletteToolElement;
-    const { rawPixelData } = canvasElement.getTileData();
-    this.rawPixelData = rawPixelData;
+    const { rawTileData } = canvasElement.getTileData();
+    this.rawTileData = rawTileData;
     this.palettes = paletteToolElement.palettes;
     this.tileWidth = canvasElement.tileWidth;
     this.tileHeight = canvasElement.tileHeight;
@@ -20,8 +20,7 @@ module.exports = class CanvasToGameboyC {
 
     const palettes = this.createPaletteForFile();
     const tilePaletteArray = this.createTilePaletteArray();
-    const pixelsByIndexedPaletteColor = this.convertPixelsToIndexedColor(this.rawPixelData, palettes);
-    const tileArray = this.createTileArray(pixelsByIndexedPaletteColor);
+    const tileArray = this.convertTileArray(this.rawTileData, palettes);
     const flattenedTiles = tileArray.reduce((a, b) => a.concat(b), []);
     const tileMap = this.createTileMap({ mapping: tileArray.reduce((a, b, i) => {
       a[i] = i;
@@ -47,52 +46,36 @@ module.exports = class CanvasToGameboyC {
     return tileValidationData.map(d => `0x0${d.palette}`);
   }
 
-  createTileArray(pixelData) {
-    const pixelsY = this.canvas.height;
-    const pixelsX = this.canvas.width;
+  convertTileArray(tileArray, palettes) {
+    const arrLength = tileArray.length;
     const tileWidth = this.canvas.tileWidth;
     const tileHeight = this.canvas.tileHeight;
-    const tileRowCount = pixelsX / tileWidth;
-    const tilesX = pixelsX / tileWidth;
-    const tilesY = pixelsY / tileHeight;
     const pixelsPerTile = tileWidth * tileHeight;
-
-    // create empty nested array for all tiles
-    let arr = [...new Array(tilesX * tilesY)].map(() => []);
-    let pixelCounter = 0;
-    let currentRow = 0;
-    let currentColumn;
-    let tile;
-
-
-    for (; currentRow < pixelsY; currentRow += 1) {
-      for (currentColumn = 0; currentColumn < pixelsX; currentColumn += 1) {
-        tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
-        arr[tile].push(pixelData[pixelCounter]);
-        pixelCounter += 1;
-      }
-    }
-
-
-    // loop thruogh each tile row and convert to hex with color plane
-    const arrLength = arr.length;
     const rowsPerTile = pixelsPerTile / tileWidth;
     let i = 0;
     let j;
     let tempArr;
     let startingPixel;
+    let palette;
+    let convertedRow;
 
     for(; i < arrLength; i += 1) {
       tempArr = [];
       for (j = 0; j < rowsPerTile; j += 1) {
         startingPixel = j * tileWidth;
-        tempArr = tempArr.concat(this.createTilePixelRow(arr[i].slice(startingPixel, startingPixel + tileWidth)));
+        palette = palettes[this.validityData.tileValidationData[i].palette];
+        convertedRow = this.convertPixelsToIndexedColor(tileArray[i].slice(startingPixel, startingPixel + tileWidth), palette);
+        tempArr = tempArr.concat(this.createTilePixelRow(convertedRow));
       }
 
-      arr[i] = tempArr;
+      tileArray[i] = tempArr;
     }
 
-    return arr;
+    return tileArray;
+  }
+
+  convertPixelsToIndexedColor(rgbaArr, palette) {
+    return rgbaArr.map(rgba => this.matchColorToPalette(this.convertToRGBInt(rgba), palette));
   }
 
   dedupTiles(nestedTiles) {
@@ -169,16 +152,6 @@ module.exports = class CanvasToGameboyC {
 
   convertToRGBInt(rgba) {
     return (rgba[0] >> 3) | ((rgba[1] >> 3) << 5) | ((rgba[2] >> 3) << 10);
-  }
-
-  convertPixelsToIndexedColor(rawPixelData, palettes) {
-    const tilePixelCount = this.canvas.tileWidth * this.canvas.tileHeight;
-    return rawPixelData
-      .map(rgba => this.convertToRGBInt(rgba))
-      .map((cint, i) => {
-        const palette = palettes[this.validityData.tileValidationData[Math.floor(i / tilePixelCount)].palette];
-        return this.matchColorToPalette(cint, palette);
-      });
   }
 
   matchColorToPalette(cint, palette) {
