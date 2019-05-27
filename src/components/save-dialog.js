@@ -5,6 +5,8 @@ const {
   css
 } = require('@webformula/pax-core');
 const CanvasToGameboyC = require('../global/CanvasToGameboyC');
+const CanvasToGameboyZ80 = require('../global/CanvasToGameboyZ80');
+const CanvasToGameboyS = require('../global/CanvasToGameboyS');
 
 customElements.define('save-dialog', class extends HTMLElementExtended {
   constructor() {
@@ -76,28 +78,83 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
       link.click();
 
     // GBDK files
-    } else {
+    }
+
+    if (this.filetype === 'c') {
       const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-      const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName.replace(/-/g, ''));
+      const {
+        tileFile,
+        tileHFile,
+        tileMapFile,
+        tileMapHFile
+      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
 
       const link = document.createElement('a');
       link.download = `${this.fileName}.h`;
-      link.href = this.getDataBlob(hFile);
+      link.href = this.getDataBlob(tileHFile);
       link.click();
 
       const link2 = document.createElement('a');
       link2.download = `${this.fileName}.c`;
-      link2.href = this.getDataBlob(cFile);
+      link2.href = this.getDataBlob(tileFile);
       link2.click();
 
       const link3 = document.createElement('a');
       link3.download = `${this.fileName}Map.h`;
-      link3.href = this.getDataBlob(hMapFile);
+      link3.href = this.getDataBlob(tileMapHFile);
       link3.click();
 
       const link4 = document.createElement('a');
       link4.download = `${this.fileName}Map.c`;
-      link4.href = this.getDataBlob(cMapFile);
+      link4.href = this.getDataBlob(tileMapFile);
+      link4.click();
+    }
+
+    if (this.filetype === 'z80') {
+      const cl = new CanvasToGameboyZ80(this.canvas, this.paletteTool);
+      const {
+        tileFile,
+        tileMapFile,
+      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
+
+      const link2 = document.createElement('a');
+      link2.download = `${this.fileName}.z80`;
+      link2.href = this.getDataBlob(tileFile);
+      link2.click();
+
+      const link4 = document.createElement('a');
+      link4.download = `${this.fileName}Map.z80`;
+      link4.href = this.getDataBlob(tileMapFile);
+      link4.click();
+    }
+
+    if (this.filetype === 's') {
+      const cl = new CanvasToGameboyS(this.canvas, this.paletteTool);
+      const {
+        tileFile,
+        tileHFile,
+        tileMapFile,
+        tileMapHFile
+      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
+
+      const link = document.createElement('a');
+      link.download = `${this.fileName}.h`;
+      link.href = this.getDataBlob(tileHFile);
+      link.click();
+
+      const link2 = document.createElement('a');
+      link2.download = `${this.fileName}.s`;
+      link2.href = this.getDataBlob(tileFile);
+      link2.click();
+
+      const link3 = document.createElement('a');
+      link3.download = `${this.fileName}Map.h`;
+      link3.href = this.getDataBlob(tileMapHFile);
+      link3.click();
+
+      const link4 = document.createElement('a');
+      link4.download = `${this.fileName}Map.s`;
+      link4.href = this.getDataBlob(tileMapFile);
       link4.click();
     }
   }
@@ -205,7 +262,9 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
 
           <label for="imageType">Image type: </label>
           <select name="filetype">
-            <option selected value="">GBDK (c, h)</option>
+            <option selected value="c">GBDK (c, h)</option>
+            <option value="z80">z80 (asssembly)</option>
+            <option value="s">s (asssembly)</option>
             <option value="image/png">PNG</option>
             <option value="image/jpg">JPG</option>
             <option value="image/gif">GIF</option>

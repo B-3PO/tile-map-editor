@@ -27,6 +27,6 @@
     "watch": "^1.0.2"
   },
   "temo": {
-    "@webformula/pax-core": "github:webformula/pax-core"
+    "@webformula/pax-core": "file:../webformula/pax-core"
   }
 }

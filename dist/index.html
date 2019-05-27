@@ -213,7 +213,7 @@
       }
     
       
-      window.CanvasToGameboyC = class CanvasToGameboyC {
+      window.CanvasToFileCore = class CanvasToFileCore {
         constructor(canvasElement, paletteToolElement) {
           this.canvas = canvasElement;
           this.paletteTool = paletteToolElement;
@@ -226,6 +226,18 @@
           this.tilePaletteChecker = new TilePaletteChecker(canvasElement, paletteToolElement);
         }
       
+        sliceJoinArr(arr, sliceIndex, prefix = '') {
+          const length = arr.length;
+          let i = 0;
+          let str = '';
+      
+          for (; i < length; i += sliceIndex) {
+            str += `${prefix}${arr.slice(i, i + sliceIndex).join(',')}\n`;
+          }
+      
+          return str;
+        }
+      
         process(fileName, varName) {
           this.validityData = this.tilePaletteChecker.check();
           if (this.validityData.valid === false) throw Error('You have invalid tiles, pleach check "Tile validation mode"');
@@ -233,16 +245,27 @@
           const palettes = this.createPaletteForFile();
           const tilePaletteArray = this.createTilePaletteArray();
           const tileArray = this.convertTileArray(this.rawTileData, palettes);
+      
           const flattenedTiles = tileArray.reduce((a, b) => a.concat(b), []);
           const tileMap = this.createTileMap({ mapping: tileArray.reduce((a, b, i) => {
             a[i] = i;
             return a;
           }, {}) });
-          // TODO fix dedup
+      
+          // TODO fix dedup`
           // const dedupedTiles = this.dedupTiles(tileArray);
           // const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
           // const tileMap = this.createTileMap(dedupedTiles);
-          return this.formatFile(fileName, varName, palettes, tilePaletteArray, flattenedTiles, tileMap);
+      
+          return {
+            canvas: this.canvas,
+            tileWidth: this.tileWidth,
+            tileHeight: this.tileHeight,
+            palettes,
+            tilePaletteArray,
+            tileArray: flattenedTiles,
+            tileMap
+          };
         }
       
         createPaletteForFile() {
@@ -377,22 +400,52 @@
           const cMapFile = this.formatCMapFile(fileName, varName, tileMap);
           return { hFile, cFile, hMapFile, cMapFile };
         }
+      }
+      window.CanvasToGameboyC = class CanvasToGameboyC {
+        constructor(canvasElement, paletteToolElement) {
+          this.canvas = canvasElement;
+          this.canvasToFileCore = new CanvasToFileCore(canvasElement, paletteToolElement);
+        }
+      
+        format(fileName, varName) {
+          const {
+            canvas,
+            tileWidth,
+            tileHeight,
+            palettes,
+            tilePaletteArray,
+            tileArray,
+            tileMap
+          } = this.canvasToFileCore.process(fileName, varName);
+      
+          const tileFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+          const tileMapFile = this.formatCMapFile(fileName, varName, tileMap);
+          const tileHFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+          const tileMapHFile = this.formatHMapFile(fileName, varName, tileMap);
+      
+          return {
+            tileFile,
+            tileHFile,
+            tileMapFile,
+            tileMapHFile
+          };
+        }
       
         formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
           const tileCount = tilePaletteArray.length;
           return stripIndents`
             ${this.getComentBlock(fileName, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
       
-            ${stripIndents`
-            /* CGBpalette entries. */
-            unsigned char ${varName}PaletteEntries[${tileCount}] = {
-              ${tilePaletteArray.join(',')}
-            };
+            ${`
+      /* CGBpalette entries. */
+      unsigned char ${varName}PaletteEntries[${tileCount}] = {
+        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8)}
+      };
       
-            /* Start of tile array. */
-            unsigned char ${varName}[${tileArray.length}] = {
-              ${tileArray.join(',')}
-            };
+      /* Start of tile array. */
+      unsigned char ${varName}[${tileArray.length}] = {
+        ${this.canvasToFileCore.sliceJoinArr(tileArray, 16)}
+      };
             `}
           `;
         }
@@ -426,11 +479,11 @@
           return stripIndents`
             ${this.getComentBlock(`${fileName}Map`, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
       
-            ${stripIndents`
-            /* map array. */
-            unsigned char ${varName}Map[${mapping.length}] = {
-              ${mapping.join(',')}
-            };
+            ${`
+      /* map array. */
+      unsigned char ${varName}Map[${mapping.length}] = {
+        ${this.canvasToFileCore.sliceJoinArr(mapping, 8)}
+      };
             `}
           `;
         }
@@ -456,8 +509,206 @@
              Info:
               Tile size            : ${tileWidth} x ${tileHeight}
               Tiles                : ${tileCount}
+              map size             : ${Math.floor(this.canvas.width / tileWidth)} x ${Math.floor(this.canvas.height / tileHeight)}
               CGB Palette          : 1 Byte per entry.
             */
+          `;
+        }
+      }
+      window.CanvasToGameboyS = class CanvasToGameboyZ80 {
+        constructor(canvasElement, paletteToolElement) {
+          this.canvas = canvasElement;
+          this.canvasToFileCore = new CanvasToFileCore(canvasElement, paletteToolElement);
+        }
+      
+        format(fileName, varName) {
+          const {
+            canvas,
+            tileWidth,
+            tileHeight,
+            palettes,
+            tilePaletteArray,
+            tileArray,
+            tileMap
+          } = this.canvasToFileCore.process(fileName, varName);
+          const tileFile = this.formatFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+          const tileMapFile = this.formatMapFile(fileName, varName, tileMap);
+          const tileHFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+          const tileMapHFile = this.formatHMapFile(fileName, varName, tileMap);
+      
+          return {
+            tileFile,
+            tileHFile,
+            tileMapFile,
+            tileMapHFile
+          };
+        }
+      
+        getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = 'z80') {
+          return stripIndents`
+            ; ${fileName}.${type}
+      
+            ; Tile Source File.
+      
+            ; Info:
+            ;  Tile size            : ${tileWidth} x ${tileHeight}
+            ;  Tiles                : ${tileCount}
+            ;  CGB Palette          : 1 Byte per entry.
+          `;
+        }
+      
+        formatFile(fileName, varName, palettes, tilePaletteArray, tileArray, codeArea = 1) {
+          const tileCount = tilePaletteArray.length;
+          return stripIndents`
+            ${this.getComentBlock(fileName, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+            ${stripIndents`
+            .area _CODE_${codeArea}
+      
+            .globl _${varName}
+            .dw _${varName}
+            .globl _${varName}PaletteEntries
+            .dw _${varName}PaletteEntries
+      
+            .globl _${varName}tileWidth
+            _${varName}tileWidth .equ ${this.canvas.tileWidth.toString(16)}
+            .globl _${varName}tileHeight
+            _${varName}tileHeight .equ ${this.canvas.tileHeight.toString(16)}
+            .globl _${varName}tileCount
+            _${varName}tileCount .equ ${tilePaletteArray.length.toString(16)}
+            .globl _${varName}Size
+            _${varName}Size .equ ${tilePaletteArray.length.toString(16)}
+            .globl _${varName}TileCount
+            _${varName}TileCount .equ ${tileArray.length.toString(16)}
+      
+            ; CGBpalette entries.
+            _${varName}PaletteEntries:
+            ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '.db ')}
+      
+            _${varName}:
+            ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '.db ')}
+            `}
+          `;
+        }
+      
+        formatHFile(fileName, varName, mapping) {
+          return stripIndents`
+            ${this.getComentBlock(`${fileName}Map`, mapping.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      
+            ${stripIndents`
+            /* map array. */
+            extern UINT8 ${varName}tileWidth;
+            extern UINT8 ${varName}tileHeight;
+            extern UINT8 ${varName}tileCount;
+            extern unsigned char ${varName}PaletteEntries[];
+            extern unsigned char ${varName}[];
+            `}
+          `;
+        }
+      
+        formatMapFile(fileName, varName, mapping) {
+          const tileCount = mapping.length;
+          return stripIndents`
+            ${this.getComentBlock(`${fileName}Map`, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+            ${stripIndents`
+            /* map array. */
+            .globl _${varName}Map
+            .dw _${varName}Map
+      
+            _${varName}MapLength .equ ${mapping.length.toString(16)}
+            _${varName}Map:
+            ${this.canvasToFileCore.sliceJoinArr(mapping, 8, '.db ')}
+            `}
+          `;
+        }
+      
+        formatHMapFile(fileName, varName, mapping) {
+          return stripIndents`
+            ${this.getComentBlock(`${fileName}Map`, mapping.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      
+            ${stripIndents`
+            /* map array. */
+            extern UINT8 ${varName}MapLength;
+            extern unsigned char ${varName}Map[];
+            `}
+          `;
+        }
+      }
+      window.CanvasToGameboyZ80 = class CanvasToGameboyZ80 {
+        constructor(canvasElement, paletteToolElement) {
+          this.canvas = canvasElement;
+          this.canvasToFileCore = new CanvasToFileCore(canvasElement, paletteToolElement);
+        }
+      
+        format(fileName, varName) {
+          const {
+            canvas,
+            tileWidth,
+            tileHeight,
+            palettes,
+            tilePaletteArray,
+            tileArray,
+            tileMap
+          } = this.canvasToFileCore.process(fileName, varName);
+          const tileFile = this.formatFile(fileName, varName, palettes, tilePaletteArray, tileArray);
+          const tileMapFile = this.formatMapFile(fileName, varName, tileMap);
+      
+          return {
+            tileFile,
+            tileMapFile
+          };
+        }
+      
+        getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = 'z80') {
+          return stripIndents`
+            ; ${fileName}.${type}
+      
+            ; Tile Source File.
+      
+            ; Info:
+            ;  Tile size            : ${tileWidth} x ${tileHeight}
+            ;  Tiles                : ${tileCount}
+            ;  CGB Palette          : 1 Byte per entry.
+          `;
+        }
+      
+        formatFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+          const tileCount = tilePaletteArray.length;
+          return stripIndents`
+            ${this.getComentBlock(fileName, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+            ${stripIndents`
+      
+            tileWidth EQU $${this.canvas.tileWidth.toString(16)}
+            tileHeight EQU $${this.canvas.tileHeight.toString(16)}
+            tileCount EQU $${tilePaletteArray.length.toString(16)}
+            ${varName}Size EQU $${tilePaletteArray.length.toString(16)}
+            ${varName}Size EQU $${tileArray.length.toString(16)}
+      
+            ; CGBpalette entries.
+            ${varName}PaletteEntries::
+            ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, 'DB ')}
+      
+            ; CGBTile entries.
+            ${varName}::
+      
+            ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, 'DB ')}
+            `}
+          `;
+        }
+      
+        formatMapFile(fileName, varName, mapping) {
+          const tileCount = mapping.length;
+          return stripIndents`
+            ${this.getComentBlock(`${fileName}Map`, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+            ${stripIndents`
+            /* map array. */
+            ${varName}MapLength EQU $${mapping.length.toString(16)}
+            ${varName}Map::
+            ${this.canvasToFileCore.sliceJoinArr(mapping, 8, 'DB ')}
+            `}
           `;
         }
       }
@@ -2347,7 +2598,7 @@
             }
             currentColumn = 0;
           }
-          console.log(rawTileData, rawTileData.length);
+          
           return {
             rawPixelData,
             tileColors,
@@ -4322,7 +4573,9 @@
       
           <label for="imageType">Image type: </label>
           <select name="filetype">
-            <option selected value="">GBDK (c, h)</option>
+            <option selected value="c">GBDK (c, h)</option>
+            <option value="z80">z80 (asssembly)</option>
+            <option value="s">s (asssembly)</option>
             <option value="image/png">PNG</option>
             <option value="image/jpg">JPG</option>
             <option value="image/gif">GIF</option>
@@ -4413,28 +4666,83 @@
             link.click();
       
           // GBDK files
-          } else {
+          }
+      
+          if (this.filetype === 'c') {
             const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
-            const { hFile, cFile, hMapFile, cMapFile } = cl.process(this.fileName, this.fileName.replace(/-/g, ''));
+            const {
+              tileFile,
+              tileHFile,
+              tileMapFile,
+              tileMapHFile
+            } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
       
             const link = document.createElement('a');
             link.download = `${this.fileName}.h`;
-            link.href = this.getDataBlob(hFile);
+            link.href = this.getDataBlob(tileHFile);
             link.click();
       
             const link2 = document.createElement('a');
             link2.download = `${this.fileName}.c`;
-            link2.href = this.getDataBlob(cFile);
+            link2.href = this.getDataBlob(tileFile);
             link2.click();
       
             const link3 = document.createElement('a');
             link3.download = `${this.fileName}Map.h`;
-            link3.href = this.getDataBlob(hMapFile);
+            link3.href = this.getDataBlob(tileMapHFile);
             link3.click();
       
             const link4 = document.createElement('a');
             link4.download = `${this.fileName}Map.c`;
-            link4.href = this.getDataBlob(cMapFile);
+            link4.href = this.getDataBlob(tileMapFile);
+            link4.click();
+          }
+      
+          if (this.filetype === 'z80') {
+            const cl = new CanvasToGameboyZ80(this.canvas, this.paletteTool);
+            const {
+              tileFile,
+              tileMapFile,
+            } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
+      
+            const link2 = document.createElement('a');
+            link2.download = `${this.fileName}.z80`;
+            link2.href = this.getDataBlob(tileFile);
+            link2.click();
+      
+            const link4 = document.createElement('a');
+            link4.download = `${this.fileName}Map.z80`;
+            link4.href = this.getDataBlob(tileMapFile);
+            link4.click();
+          }
+      
+          if (this.filetype === 's') {
+            const cl = new CanvasToGameboyS(this.canvas, this.paletteTool);
+            const {
+              tileFile,
+              tileHFile,
+              tileMapFile,
+              tileMapHFile
+            } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
+      
+            const link = document.createElement('a');
+            link.download = `${this.fileName}.h`;
+            link.href = this.getDataBlob(tileHFile);
+            link.click();
+      
+            const link2 = document.createElement('a');
+            link2.download = `${this.fileName}.s`;
+            link2.href = this.getDataBlob(tileFile);
+            link2.click();
+      
+            const link3 = document.createElement('a');
+            link3.download = `${this.fileName}Map.h`;
+            link3.href = this.getDataBlob(tileMapHFile);
+            link3.click();
+      
+            const link4 = document.createElement('a');
+            link4.download = `${this.fileName}Map.s`;
+            link4.href = this.getDataBlob(tileMapFile);
             link4.click();
           }
         }
@@ -4542,7 +4850,9 @@
       
                 <label for="imageType">Image type: </label>
                 <select name="filetype">
-                  <option selected value="">GBDK (c, h)</option>
+                  <option selected value="c">GBDK (c, h)</option>
+                  <option value="z80">z80 (asssembly)</option>
+                  <option value="s">s (asssembly)</option>
                   <option value="image/png">PNG</option>
                   <option value="image/jpg">JPG</option>
                   <option value="image/gif">GIF</option>
