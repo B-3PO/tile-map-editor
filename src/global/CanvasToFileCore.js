@@ -13,13 +13,13 @@ module.exports = class CanvasToFileCore {
     this.tilePaletteChecker = new TilePaletteChecker(canvasElement, paletteToolElement);
   }
 
-  sliceJoinArr(arr, sliceIndex, prefix = '') {
+  sliceJoinArr(arr, sliceIndex, prefix = '', postfix = '') {
     const length = arr.length;
     let i = 0;
     let str = '';
 
     for (; i < length; i += sliceIndex) {
-      str += `${prefix}${arr.slice(i, i + sliceIndex).join(',')}\n`;
+      str += `${prefix}${arr.slice(i, i + sliceIndex).join(',')}${postfix}\n`;
     }
 
     return str;

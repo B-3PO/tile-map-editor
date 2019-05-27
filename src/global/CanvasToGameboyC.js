@@ -19,9 +19,9 @@ module.exports = class CanvasToGameboyC {
     } = this.canvasToFileCore.process(fileName, varName);
 
     const tileFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-    const tileMapFile = this.formatCMapFile(fileName, varName, tileMap);
+    const tileMapFile = this.formatCMapFile(fileName, varName, tileMap, tileArray);
     const tileHFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-    const tileMapHFile = this.formatHMapFile(fileName, varName, tileMap);
+    const tileMapHFile = this.formatHMapFile(fileName, varName, tileMap, tileArray);
 
     return {
       tileFile,
@@ -33,26 +33,28 @@ module.exports = class CanvasToGameboyC {
 
   formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
     const tileCount = tilePaletteArray.length;
+    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
-      ${this.getComentBlock(fileName, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      ${this.getComentBlock(fileName, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
 
       ${`
 /* CGBpalette entries. */
 unsigned char ${varName}PaletteEntries[${tileCount}] = {
-  ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8)}
+  ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
 };
 
 /* Start of tile array. */
 unsigned char ${varName}[${tileArray.length}] = {
-  ${this.canvasToFileCore.sliceJoinArr(tileArray, 16)}
+  ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '', ',').replace(/,\s*$/, "")}
 };
       `}
     `;
   }
 
   formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
+    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
-      ${this.getComentBlock(fileName, tilePaletteArray.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      ${this.getComentBlock(fileName, tilePaletteArray.length, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
 
       ${palettes.map((palette, i) => {
         return stripIndents`
@@ -74,23 +76,25 @@ unsigned char ${varName}[${tileArray.length}] = {
     `;
   }
 
-  formatCMapFile(fileName, varName, mapping) {
+  formatCMapFile(fileName, varName, mapping, tileArray) {
     const tileCount = mapping.length;
+    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
-      ${this.getComentBlock(`${fileName}Map`, tileCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      ${this.getComentBlock(`${fileName}Map`, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
 
       ${`
 /* map array. */
 unsigned char ${varName}Map[${mapping.length}] = {
-  ${this.canvasToFileCore.sliceJoinArr(mapping, 8)}
+  ${this.canvasToFileCore.sliceJoinArr(mapping, 8, '', ',').replace(/,\s*$/, "")}
 };
       `}
     `;
   }
 
-  formatHMapFile(fileName, varName, mapping) {
+  formatHMapFile(fileName, varName, mapping, tileArray) {
+    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
-      ${this.getComentBlock(`${fileName}Map`, mapping.length, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      ${this.getComentBlock(`${fileName}Map`, mapping.length, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
 
       ${stripIndents`
       /* map array. */
@@ -99,7 +103,7 @@ unsigned char ${varName}Map[${mapping.length}] = {
     `;
   }
 
-  getComentBlock(fileName, tileCount, tileWidth, tileHeight, type = 'c') {
+  getComentBlock(fileName, tileCount, tileDataCount, tileWidth, tileHeight, type = 'c') {
     return stripIndents`
       /*
        ${fileName}.${type}
@@ -108,7 +112,8 @@ unsigned char ${varName}Map[${mapping.length}] = {
 
        Info:
         Tile size            : ${tileWidth} x ${tileHeight}
-        Tiles                : ${tileCount}
+        TileDataCount        : ${tileDataCount}
+        TileMapCount         : ${tileCount}
         map size             : ${Math.floor(this.canvas.width / tileWidth)} x ${Math.floor(this.canvas.height / tileHeight)}
         CGB Palette          : 1 Byte per entry.
       */
