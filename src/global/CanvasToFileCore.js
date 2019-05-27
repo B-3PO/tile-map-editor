@@ -42,7 +42,9 @@ module.exports = class CanvasToFileCore {
     // TODO fix dedup`
     // const dedupedTiles = this.dedupTiles(tileArray);
     // const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
+    // NOTE dedupedTiles mapping seems to be broken
     // const tileMap = this.createTileMap(dedupedTiles);
+    // console.log(dedupedTiles)
 
     return {
       canvas: this.canvas,
@@ -117,6 +119,8 @@ module.exports = class CanvasToFileCore {
       for (j = i + 1; j < length; j += 1) {
         if (this.compareTiles(indexedTiles[i], indexedTiles[j])) {
 
+
+          // NOTE this seems to be wrong
           // create mapping of what tiles go where
           mapping[indexedTiles[j][16]] = i;
 
