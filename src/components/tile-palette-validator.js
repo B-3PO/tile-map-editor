@@ -4,7 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
-const TilePaletteChecker = require('../global/TilePaletteChecker');
+const TilePaletteChecker = require('../global/TilePaletteChecker.js');
 
 customElements.define('tile-palette-validator', class extends HTMLElementExtended {
   constructor() {
@@ -18,7 +18,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   connectedCallback() {
-    this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
     this.bound_onTileSelect = this.onTileSelect.bind(this);
     this.bound_onCheckboxChange = this.onCheckboxChange.bind(this);
     this.bound_onPaletteChange = this.onPaletteChange.bind(this);
@@ -87,7 +86,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
     // calculate width based on aspect ratio of tile
     this.tileDisplayWidth = (this.canvas_.tileWidth / this.canvas_.tileHeight) * this.tileDisplayHeight;
     this.tileDrawScale = this.tileDisplayHeight / this.canvas_.tileHeight;
-    this.tilePaletteChecker.canvas = value;
     this.canvas_.addEventListener('tileSelect', this.bound_onTileSelect);
   }
 
@@ -97,23 +95,16 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   set paletteTool(value) {
     this.paletteTool_ = value;
-    this.tilePaletteChecker.paletteTool = value;
   }
 
   get validationModeCheckbox() {
     return this.shadowRoot.querySelector('#validation-mode-checkbox');
   }
 
-  get tileData() {
-    return this.data.rawTileData[this.selected];
-  }
-
-  set tileData(value) {
-    this.tileData_ = value;
-  }
-
   check() {
+    this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
     this.data = this.tilePaletteChecker.check();
+    this.tileData = this.data.tileData;
     this.canvas.tileValidation = this.data;
     this.render();
   }
@@ -143,7 +134,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   onTileSelect(e) {
     this.selected = e.detail.selectedTile;
-    this.selectedValidation = this.data.tileValidationData[this.selected];
+    this.selectedValidation = this.tileData[this.selected];
     this.selectedPalette = this.paletteTool.palettes[this.selectedValidation.palette];
     this.originalPalette = this.selectedPalette !== undefined ? this.selectedPalette : this.createTempPalette();
     this.preventTileDataReload = false;
@@ -180,8 +171,8 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
     for(; y < pixelsY; y += 1) {
       for(x = 0; x < pixelsX; x += 1) {
-        currentPixelColor = this.tilePaletteChecker.RGBAtoInt(tileData[y * pixelsX + x]);
-        palettePosition = this.originalPalette.map(c => this.tilePaletteChecker.RGBAtoInt(c)).indexOf(currentPixelColor);
+        currentPixelColor = ColorUtils.RGBAtoInt(tileData[this.selected].pixels[y * pixelsX + x]);
+        palettePosition = this.originalPalette.map(c => ColorUtils.RGBAtoInt(c)).indexOf(currentPixelColor);
 
         if (palette) {
           ctx.fillStyle = `rgba(${palette[palettePosition]})`;
@@ -197,7 +188,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   createTempPalette() {
-    const tileColors = this.data.tileValidationData[this.selected].colors.sort().map(c => this.tilePaletteChecker.intToRGBAArray(c));
+    const tileColors = this.tileData[this.selected].colors.sort().map(c => ColorUtils.intToRGBAArray(c));
     if (tileColors.length < 4) {
       let i = tileColors.length;
       const length = 4;
@@ -228,7 +219,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
   onPaletteChange(e) {
     this.check();
-    this.selectedValidation = this.data.tileValidationData[this.selected];
+    this.selectedValidation = this.tileData[this.selected];
     this.drawPaletteVariations();
   }
 
@@ -239,7 +230,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   fixTile() {
     this.shadowRoot.querySelector('div').insertAdjacentHTML('afterbegin', `<tile-palette-fixer tile-width="${this.canvas.tileWidth}" tile-height="${this.canvas.tileHeight}"></tile-palette-fixer>`);
     const el = this.shadowRoot.querySelector('tile-palette-fixer');
-    el.setData(this.selected, this.tileData, this.canvas.getAllColors(), this.canvas);
+    el.setData(this.selected, this.tileData[this.selected].pixels, this.canvas.getAllColors(), this.canvas);
     el.addEventListener('change', () => {
       this.onPaletteChange();
     });
@@ -349,7 +340,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
 
 
   template() {
-    const valid = this.selected !== undefined ? this.data.tileValidationData[this.selected].valid : false;
+    const valid = this.selected !== undefined ? this.tileData[this.selected].valid : false;
     return html`
       <div class="row">
         <input id="validation-mode-checkbox" type="checkbox" ${this.validationModeChecked_ ? 'checked' : ''}>
@@ -368,7 +359,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
               <div class="reason">No tile selected</div>
             ` :
             html`
-              <div class="reason warn" style="${!valid ? '' : 'display: none;'}">${this.data.tileValidationData[this.selected].reason}</div>
+              <div class="reason warn" style="${!valid ? '' : 'display: none;'}">${this.tileData[this.selected].reason}</div>
               <div class="reason success" style="${valid ? '' : 'display: none;'}">Valid</div>
               <div class="row">
                 <palette-display class="selected-display"></palette-display>

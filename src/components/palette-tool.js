@@ -178,7 +178,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     palettes[paletteId] = palette;
     palette.forEach((c, i) => {
       const el = this.shadowRoot.querySelector(`[id="${paletteId}:${i}"]`);
-      el.style.backgroundColor = this.convertArrToRBGA(c);
+      if (el) el.style.backgroundColor = this.convertArrToRBGA(c);
     });
     this.debounced_dispatchPaletteChange();
   }

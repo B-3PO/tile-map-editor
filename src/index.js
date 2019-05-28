@@ -1,6 +1,6 @@
 const {
   PageMapper,
-  buildClient,
+  client,
   html,
   global
 } = require('@webformula/pax-core');
@@ -25,4 +25,4 @@ pageMapper.root = 'home';
 // pageMapper.route('newroute/test', 'introduction');
 // pageMapper.addRoute('newroute/test', 'introduction');
 
-buildClient({ pageMapper, layout, path: 'dist' });
+client.build({ pageMapper, layout, path: 'dist' });

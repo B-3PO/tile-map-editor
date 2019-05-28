@@ -4,7 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
-const TilePaletteChecker = require('../global/TilePaletteChecker');
+const ColorUtils = require('../global/ColorUtils');
 
 customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
   constructor() {
@@ -27,7 +27,6 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
   }
 
   connectedCallback() {
-    this.tilePaletteChecker = new TilePaletteChecker();
     this.addEvents()
   }
 
@@ -128,7 +127,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     this.colors = {};
     for(; y < pixelsY; y += 1) {
       for(x = 0; x < pixelsX; x += 1) {
-        this.colors[this.tilePaletteChecker.RGBAtoInt(data[y * pixelsX + x])] = data[y * pixelsX + x];
+        this.colors[ColorUtils.RGBAtoInt(data[y * pixelsX + x])] = data[y * pixelsX + x];
       }
     }
     this.colors = Object.keys(this.colors).map(k => this.colors[k]);
@@ -141,7 +140,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     const pixelsX = this.tileWidth;
     const pixelsY = this.tileHeight;
     const ctx = this.canvas.getContext('2d');
-    const intColors = this.colors.map(this.tilePaletteChecker.RGBAtoInt);
+    const intColors = this.colors.map(ColorUtils.RGBAtoInt);
     let x;
     let y = 0;
     let color;
@@ -151,7 +150,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     for(; y < pixelsY; y += 1) {
       for(x = 0; x < pixelsX; x += 1) {
         color = data[y * pixelsX + x];
-        colorPosition = intColors.indexOf(this.tilePaletteChecker.RGBAtoInt(data[y * pixelsX + x]));
+        colorPosition = intColors.indexOf(ColorUtils.RGBAtoInt(data[y * pixelsX + x]));
         if (this.colorConversions[colorPosition]) color = this.colorConversions[colorPosition];
         ctx.fillStyle = `rgba(${color})`;
         ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale);
@@ -161,7 +160,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
   }
 
   compareColors(a, b) {
-    return this.tilePaletteChecker.RGBAtoInt(a) === this.tilePaletteChecker.RGBAtoInt(b);
+    return ColorUtils.RGBAtoInt(a) === ColorUtils.RGBAtoInt(b);
   }
 
   paletteClick(e) {

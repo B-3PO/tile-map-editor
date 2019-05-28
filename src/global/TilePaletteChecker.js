@@ -1,101 +1,52 @@
+const CanvasUtils = require('./CanvasUtils.js');
+const ColorUtils = require('./ColorUtils.js');
+
 module.exports = class TilePaletteChecker {
   constructor(canvas, palette) {
-    this.canvas = canvas;
-    this.paletteTool = palette;
-  }
-
-  get tileSize() {
-    return this.canvas.gridSize;
-  }
-
-  get canvasSize() {
-    return {
-      width: this.canvas.width,
-      height: this.canvas.height
-    }
-  }
-
-  get palettes() {
-    return this.paletteTool.palettes.map(p => this.convertRGBAArrToInt(p));
+    this.canvasUtils = new CanvasUtils(canvas, palette);
   }
 
   check() {
-    const { tileColors, rawTileData } = this.canvas.getTileData();
-    const palettes = this.palettes;
-    const paletteColorLength = palettes[0].length;
-    const invalidTiles = [];
-
-    const tileValidationData = tileColors.map((t, i) => {
-      const tileColors = Object.keys(t).map(n => parseInt(n));
-      const colorCount = tileColors.length;
-      const paletteMatch = this.matchPalette(palettes, tileColors);
-      let valid = true;
-      let reason;
-
-      if (colorCount > paletteColorLength) {
-        valid = false;
-        reason = `More than ${paletteColorLength} colors. Found ${colorCount} in tile`;
-      }
-      if (paletteMatch === undefined) {
-        valid = false;
-        reason = 'no palette match';
-      }
-      if (!valid) invalidTiles.push(i);
-
+    const palettesInt = this.canvasUtils.palettesInt;
+    const tileData = this.canvasUtils.mapTiles((tile, i) => {
+      const palette = this.findPalette(palettesInt, tile.colors);
       return {
-        valid,
-        tileId: i,
-        reason,
-        palette: paletteMatch,
-        colors: tileColors
+        id: i,
+        valid: palette !== undefined,
+        pixels: tile.pixels,
+        colors: Object.keys(tile.colors).map(k => k),
+        palette
       };
     });
+    const invalidTiles = tileData.filter(o => !o.valid);
 
     return {
-      rawTileData,
-      tileValidationData,
+      tileData,
       invalidTiles,
       valid: invalidTiles.length === 0
     };
   }
 
-  matchPalette(palettes, tileColors) {
-    let tileColorLength = tileColors.length;
-    let palleteLength = palettes.length;
+  findPalette(palettes, colorObj) {
+    const p = Object.keys(Object.keys(colorObj)
+      .map(cInt => this.findColorInPalettes(palettes, parseInt(cInt)))
+      .reduce((a, palette) => {
+        a[palette] = true;
+        return a;
+      }, {}));
+    return (p.length === 1 && p[0] !== '-1') ? p[0] : undefined;
+  }
+
+  findColorInPalettes(palettes, cInt) {
+    const length = palettes.length;
     let i = 0;
-    let j;
-    let match = true;
 
-    for (; i < palleteLength; i += 1) {
-      match = true;
-      for (j = 0; j < tileColorLength; j += 1) {
-        if (!palettes[i].includes(tileColors[j])) {
-          match = false;
-        }
+    for(; i < length; i += 1) {
+      if (palettes[i].includes(cInt)) {
+        return i;
       }
-
-      if (match === true) return i;
     }
-  }
 
-  convertRGBAArrToInt(arr) {
-    return arr.map(this.RGBAtoInt);
-  }
-
-  // TODO fix these
-  RGBAtoInt(arr) {
-    return ((Math.round(arr[3] * 255) << 24) >>> 0 | arr[0] << 16 | arr[1] << 8 | arr[2]) >>> 0;
-  }
-
-  intToRGBA(num) {
-    let alpha = num >> 24 & 255;
-    if (alpha > 1) alpha = alpha / 255;
-    return `rgba(${num >> 16 & 255},${num >> 8  & 255},${num & 255},${alpha})`;
-  }
-
-  intToRGBAArray(num) {
-    let alpha = num >> 24 & 255;
-    if (alpha > 1) alpha = alpha / 255;
-    return [num >> 16 & 255, num >> 8  & 255, num & 255, alpha];
+    return -1;
   }
 };

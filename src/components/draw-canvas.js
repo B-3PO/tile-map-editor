@@ -4,7 +4,7 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
-const TilePaletteChecker = require('../global/TilePaletteChecker');
+const ColorUtils = require('../global/ColorUtils.js');
 
 // TODO add tools: (pencil, brush, blur, spray, erase)
 // TODO add cursors based on tools
@@ -23,8 +23,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   connectedCallback() {
-    this.RGBAtoInt = new TilePaletteChecker().RGBAtoInt;
-
     const ctx = this.backgroundContext;
     this.bound_mouseDown = this.mouseDown.bind(this);
     this.bound_mouseUp = this.mouseUp.bind(this);
@@ -549,13 +547,13 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         tile = Math.floor(currentRow / tileHeight) * tileRowCount + Math.floor(currentColumn / tileWidth);
         rawColor = [pData[pixelCounter], pData[pixelCounter + 1], pData[pixelCounter + 2], pData[pixelCounter + 3] / 255];
         rawPixelData.push(rawColor);
-        tileColors[tile][this.RGBAtoInt(rawColor)] = true;
+        tileColors[tile][ColorUtils.RGBAtoInt(rawColor)] = true;
         rawTileData[tile].push(rawColor);
         pixelCounter += 4;
       }
       currentColumn = 0;
     }
-    
+
     return {
       rawPixelData,
       tileColors,
@@ -576,7 +574,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     for (; currentRow < height; currentRow += 1) {
       for (; currentColumn < width; currentColumn += 1) {
         rawColor = [pData[pixelCounter], pData[pixelCounter + 1], pData[pixelCounter + 2], pData[pixelCounter + 3] / 255];
-        colors[this.RGBAtoInt(rawColor)] = rawColor;
+        colors[ColorUtils.RGBAtoInt(rawColor)] = rawColor;
         pixelCounter += 4;
       }
       currentColumn = 0;
@@ -628,10 +626,10 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
 
     ctx.lineWidth = 0.75;
     ctx.strokeStyle = 'rgba(238, 51, 51, 1)';
-    this.tileValidation.tileValidationData.forEach(t => {
+    this.tileValidation.tileData.forEach(t => {
       if (!t.valid) {
-        const y = Math.floor(t.tileId / tileRowCount) * tileHeight;
-        const x = (t.tileId % tileRowCount) * tileWidth;
+        const y = Math.floor(t.id / tileRowCount) * tileHeight;
+        const x = (t.id % tileRowCount) * tileWidth;
         ctx.strokeRect(x, y, tileWidth, tileHeight);
       }
     });
@@ -668,7 +666,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const [x, y] = this.snapToTile(e.clientX - bounds.left, e.clientY - bounds.top);
     const tileWidth = this.tileWidth * this.scale;
     // check tile validity and updat cursor color
-    const isTileValid = this.tileValidation.tileValidationData[(y / tileWidth) * (this.canvasWidth / this.tileWidth) + (x / tileWidth)].valid;
+    const isTileValid = this.tileValidation.tileData[(y / tileWidth) * (this.canvasWidth / this.tileWidth) + (x / tileWidth)].valid;
     if (isTileValid) this.greenValidationCursor();
     else this.redValidationCursor();
 
@@ -803,7 +801,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     const updatesTiles = {};
     this.forEachTile((tile, i) => {
       if (this.compareIntPalettes(Object.keys(paletteMap), Object.keys(tile.palette))) {
-        updatesTiles[i] = tile.pixels.map(c => paletteMap[this.RGBAtoInt(c)]);
+        updatesTiles[i] = tile.pixels.map(c => paletteMap[ColorUtils.RGBAtoInt(c)]);
       }
       return tile;
     });
@@ -851,7 +849,7 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
         rawColor = [pixelData[pixelCounter], pixelData[pixelCounter + 1], pixelData[pixelCounter + 2], pixelData[pixelCounter + 3] / 255];
         if (!tiles[tileIndex]) tiles[tileIndex] = { pixels: [], palette: {} };
         tiles[tileIndex].pixels.push(rawColor);
-        tiles[tileIndex].palette[this.RGBAtoInt(rawColor)] = rawColor;
+        tiles[tileIndex].palette[ColorUtils.RGBAtoInt(rawColor)] = rawColor;
         pixelCounter += 4;
       }
     }
