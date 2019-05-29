@@ -234,6 +234,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   updateSelected(color) {
+    if (color[3] > 1) color[3] /= 255;
     this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]] = color;
     this.selectedColorElement.style.backgroundColor = this.convertArrToRBGA(color);
     this.shadowRoot.querySelector('#left-color').style.backgroundColor = this.convertArrToRBGA(color);

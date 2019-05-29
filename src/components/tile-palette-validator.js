@@ -18,6 +18,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   connectedCallback() {
+    this.tilePaletteChecker = new TilePaletteChecker();
     this.bound_onTileSelect = this.onTileSelect.bind(this);
     this.bound_onCheckboxChange = this.onCheckboxChange.bind(this);
     this.bound_onPaletteChange = this.onPaletteChange.bind(this);
@@ -102,7 +103,6 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   }
 
   check() {
-    this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
     this.data = this.tilePaletteChecker.check();
     this.tileData = this.data.tileData;
     this.canvas.tileValidation = this.data;

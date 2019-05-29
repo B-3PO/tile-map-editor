@@ -94,19 +94,19 @@ module.exports = class Home extends Page {
     this.paletteTool.colorCount = e.detail.palette.colorCount;
     this.paletteTool.count = e.detail.palette.count;
 
-    this.paletteTool.setPalette(0, [
-      [198, 209, 211, 1],
-      [81, 125, 136, 1],
-      [139, 133, 109, 1],
-      [0, 0, 0, 1]
-    ]);
-
-    this.paletteTool.setPalette(1, [
-      [139, 133, 109, 1],
-      [34, 34, 34, 1],
-      [11, 13, 13, 1],
-      [0, 0, 0, 1]
-    ]);
+    // this.paletteTool.setPalette(0, [
+    //   [198, 209, 211, 1],
+    //   [81, 125, 136, 1],
+    //   [139, 133, 109, 1],
+    //   [0, 0, 0, 1]
+    // ]);
+    //
+    // this.paletteTool.setPalette(1, [
+    //   [139, 133, 109, 1],
+    //   [34, 34, 34, 1],
+    //   [11, 13, 13, 1],
+    //   [0, 0, 0, 1]
+    // ]);
   }
 
   centerCanvas() {

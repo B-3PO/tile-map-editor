@@ -2,8 +2,8 @@ const CanvasUtils = require('./CanvasUtils.js');
 const ColorUtils = require('./ColorUtils.js');
 
 module.exports = class TilePaletteChecker {
-  constructor(canvas, palette) {
-    this.canvasUtils = new CanvasUtils(canvas, palette);
+  constructor() {
+    this.canvasUtils = new CanvasUtils();
   }
 
   check() {

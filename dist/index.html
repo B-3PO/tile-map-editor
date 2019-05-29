@@ -741,9 +741,9 @@
         }
       }
       window.CanvasUtils = class CanvasUtils {
-        constructor(canvas, paletteElement) {
-          this.canvas = canvas;
-          this.paletteElement = paletteElement;
+        constructor() {
+          this.canvas = document.querySelector('draw-canvas');
+          this.paletteElement = document.querySelector('palette-tool');;
         }
       
         get palettes() {
@@ -808,14 +808,16 @@
         }
       }
       window.TilePaletteChecker = class TilePaletteChecker {
-        constructor(canvas, palette) {
-          this.canvasUtils = new CanvasUtils(canvas, palette);
+        constructor() {
+          this.canvasUtils = new CanvasUtils();
         }
       
         check() {
           const palettesInt = this.canvasUtils.palettesInt;
+          console.log(palettesInt, this.canvasUtils.palettes);
           const tileData = this.canvasUtils.mapTiles((tile, i) => {
             const palette = this.findPalette(palettesInt, tile.colors);
+            if (i == 286) console.log(palette, tile.colors)
             return {
               id: i,
               valid: palette !== undefined,
@@ -1834,6 +1836,7 @@
         }
       
         updateSelected(color) {
+          if (color[3] > 1) color[3] /= 255;
           this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]] = color;
           this.selectedColorElement.style.backgroundColor = this.convertArrToRBGA(color);
           this.shadowRoot.querySelector('#left-color').style.backgroundColor = this.convertArrToRBGA(color);
@@ -3890,6 +3893,7 @@
         }
       
         connectedCallback() {
+          this.tilePaletteChecker = new TilePaletteChecker();
           this.bound_onTileSelect = this.onTileSelect.bind(this);
           this.bound_onCheckboxChange = this.onCheckboxChange.bind(this);
           this.bound_onPaletteChange = this.onPaletteChange.bind(this);
@@ -3974,7 +3978,6 @@
         }
       
         check() {
-          this.tilePaletteChecker = new TilePaletteChecker(this.canvas, this.paletteTool);
           this.data = this.tilePaletteChecker.check();
           this.tileData = this.data.tileData;
           this.canvas.tileValidation = this.data;
@@ -5747,19 +5750,19 @@
           this.paletteTool.colorCount = e.detail.palette.colorCount;
           this.paletteTool.count = e.detail.palette.count;
       
-          this.paletteTool.setPalette(0, [
-            [198, 209, 211, 1],
-            [81, 125, 136, 1],
-            [139, 133, 109, 1],
-            [0, 0, 0, 1]
-          ]);
-      
-          this.paletteTool.setPalette(1, [
-            [139, 133, 109, 1],
-            [34, 34, 34, 1],
-            [11, 13, 13, 1],
-            [0, 0, 0, 1]
-          ]);
+          // this.paletteTool.setPalette(0, [
+          //   [198, 209, 211, 1],
+          //   [81, 125, 136, 1],
+          //   [139, 133, 109, 1],
+          //   [0, 0, 0, 1]
+          // ]);
+          //
+          // this.paletteTool.setPalette(1, [
+          //   [139, 133, 109, 1],
+          //   [34, 34, 34, 1],
+          //   [11, 13, 13, 1],
+          //   [0, 0, 0, 1]
+          // ]);
         }
       
         centerCanvas() {

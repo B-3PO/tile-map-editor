@@ -1,9 +1,9 @@
 const ColorUtils = require('./ColorUtils.js');
 
 module.exports = class CanvasUtils {
-  constructor(canvas, paletteElement) {
-    this.canvas = canvas;
-    this.paletteElement = paletteElement;
+  constructor() {
+    this.canvas = document.querySelector('draw-canvas');
+    this.paletteElement = document.querySelector('palette-tool');;
   }
 
   get palettes() {
