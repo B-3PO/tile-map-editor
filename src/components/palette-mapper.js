@@ -6,7 +6,7 @@ const {
 } = require('@webformula/pax-core');
 const CanvasUtils = require('../global/CanvasUtils.js');
 
-customElements.define('palette-extractor', class extends HTMLElementExtended {
+customElements.define('palette-mapper', class extends HTMLElementExtended {
   constructor() {
     super();
     this.colors = [];
@@ -160,7 +160,7 @@ customElements.define('palette-extractor', class extends HTMLElementExtended {
         return a;
       }, obj)
     });
-    
+
     this.dispatchEvent(new CustomEvent('change', {
       detail: {
         palettes,
@@ -347,7 +347,7 @@ customElements.define('palette-extractor', class extends HTMLElementExtended {
         <div class="content">
           <div id="floating-color-block" class="floating-color-block"></div>
           <div class="title">Sort colors</div>
-          <div class="sub-header">Click and drag color across</div>
+          <div class="sub-header">Click and drag color across, Click on paletts color to change</div>
 
           <div class="row">
 

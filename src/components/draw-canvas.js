@@ -488,7 +488,6 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   showGrid() {
-    ;
     this.showGrid_ = true;
     this.drawGrid();
   }
@@ -795,36 +794,40 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
   }
 
   remapColors(colorMap) {
+    this.storeCanvas();
     // invert color map to make is easier to work with
-    colorMap = colorMap.map((m, i) => {
-      return Object.keys(colorMap[i]).reduce((a, k) => {
+    const inversedColors = {};
+    colorMap = colorMap.forEach((m, i) => {
+      Object.keys(colorMap[i]).forEach(k => {
         colorMap[i][k].forEach(c => {
-          a[c] = k;
+          inversedColors[c] = ColorUtils.RGBToArray(k);
         });
-        return a;
-      }, {});
+      });
     });
 
-    // const ctx = this.backgroundContext;
-    // const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-    // const data = imageData.data;
-    // const length = imageData.length;
-    // let i = 0;
-    // let r;
-    // let g;
-    // let b;
-    // let a;
-    //
-    // for (; i < length; i += 4) {
-    //   [r, g, b] = reverseColorMap[`rgba(${data[i]}, ${data[i + 1]}, ${data[i + 2]})`].replace('rgb(', '').replace(')', '').split(', ');
-    //   data[i] = r;
-    //   data[i + 1] = g;
-    //   data[i + 2] = b;
-    // }
-    //
-    // ctx.putImageData(imageData, 0, 0);
-  }
+    const imageData = this.getNormalizedCanvasData();
+    const pData = imageData.data;
+    const length = pData.length;
+    let i = 0;
+    let cs;
 
+    for (; i < length; i += 4) {
+      cs = inversedColors[`rgb(${pData[i]}, ${pData[i + 1]}, ${pData[i + 2]})`];
+      pData[i] = cs[0];
+      pData[i + 1] = cs[1];
+      pData[i + 2] = cs[2];
+    }
+
+    const tempCanvas = this.tempCanvas;
+    tempCanvas.width = imageData.width;
+    tempCanvas.height = imageData.height;
+    this.tempContext.putImageData(imageData, 0, 0);
+
+    // use draw image, this has an option for streatching
+    const ctx = this.backgroundContext;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tempCanvas, 0, 0, imageData.width, imageData.height, 0, 0, this.canvasWidth, this.canvasHeight);
+  }
 
   // --- Tile manipulations ----------------------
 

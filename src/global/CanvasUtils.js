@@ -11,7 +11,7 @@ module.exports = class CanvasUtils {
   }
 
   get palettesInt() {
-    return this.paletteElement.palettes.map(p => p.map(ColorUtils.RGBAtoInt));
+    return this.palettes.map(p => p.map(ColorUtils.RGBAtoInt));
   }
 
   canvasColors() {

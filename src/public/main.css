@@ -117,7 +117,7 @@ grid-settings {
   flex-direction: column;
 }
 
-#extract-button {
+#mapper-button {
   font-size: 15px;
   font-weight: bold;
   cursor: pointer;

@@ -26,4 +26,9 @@ module.exports = class ColorUtils {
     if (arr.length === 3) arr.push(1);
     return arr;
   }
+
+  static ArrayToRBGA(arr) {
+    if (arr.length === 3) arr.push(1);
+    return `rgba(${arr.join(',')})`;
+  }
 };

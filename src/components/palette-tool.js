@@ -4,7 +4,8 @@ const {
   html,
   css
 } = require('@webformula/pax-core');
-const Utils = require('../global/utils');
+const Utils = require('../global/utils.js');
+const ColorUtils = require('../global/ColorUtils.js');
 
 customElements.define('palette-tool', class extends HTMLElementExtended {
   constructor() {
@@ -119,7 +120,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   get color() {
-    return this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
+    return ColorUtils.ArrayToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
   }
 
   set color(colorArr) {
@@ -132,7 +133,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   }
 
   get altColor() {
-    return this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]]);
+    return ColorUtils.ArrayToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]]);
   }
 
   get rawAltColor() {
@@ -178,13 +179,9 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
     palettes[paletteId] = palette;
     palette.forEach((c, i) => {
       const el = this.shadowRoot.querySelector(`[id="${paletteId}:${i}"]`);
-      if (el) el.style.backgroundColor = this.convertArrToRBGA(c);
+      if (el) el.style.backgroundColor = ColorUtils.ArrayToRBGA(c);
     });
     this.debounced_dispatchPaletteChange();
-  }
-
-  convertArrToRBGA(arr) {
-    return `rgba(${arr.join(',')})`;
   }
 
   // select color
@@ -236,8 +233,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
   updateSelected(color) {
     if (color[3] > 1) color[3] /= 255;
     this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]] = color;
-    this.selectedColorElement.style.backgroundColor = this.convertArrToRBGA(color);
-    this.shadowRoot.querySelector('#left-color').style.backgroundColor = this.convertArrToRBGA(color);
+    this.selectedColorElement.style.backgroundColor = ColorUtils.ArrayToRBGA(color);
+    this.shadowRoot.querySelector('#left-color').style.backgroundColor = ColorUtils.ArrayToRBGA(color);
     this.debounced_dispatchPaletteChange();
   }
 
@@ -404,7 +401,7 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
           ${i !== 0 ? '<div class="divider"></div>' : ''}
           <div class="palette">
             ${[...new Array(this.colorCount)].map((_, j) => `
-              <div class="color ${this.isSelectedColor(i, j) ? 'selected' : ''} ${this.isSelectedAltColor(i, j) ? 'selected-alt' : ''}" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" id="${i}:${j}"></div>
+              <div class="color ${this.isSelectedColor(i, j) ? 'selected' : ''} ${this.isSelectedAltColor(i, j) ? 'selected-alt' : ''}" style="background-color: ${ColorUtils.ArrayToRBGA(this.palettes[i][j])};" id="${i}:${j}"></div>
             `).join('\n')}
           </div>
         `).join('\n')}
@@ -413,8 +410,8 @@ customElements.define('palette-tool', class extends HTMLElementExtended {
         <div class="spacer"></div>
         <color-picker></color-picker>
         <div class="row">
-          <div id="left-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]])};"></div>
-          <div id="right-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]])};"></div>
+          <div id="left-color" class="color-block" style="background-color: ${ColorUtils.ArrayToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]])};"></div>
+          <div id="right-color" class="color-block" style="background-color: ${ColorUtils.ArrayToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]])};"></div>
         </div>
       </div>
     `;

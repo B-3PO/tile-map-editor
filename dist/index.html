@@ -751,7 +751,7 @@
         }
       
         get palettesInt() {
-          return this.paletteElement.palettes.map(p => p.map(ColorUtils.RGBAtoInt));
+          return this.palettes.map(p => p.map(ColorUtils.RGBAtoInt));
         }
       
         canvasColors() {
@@ -830,6 +830,11 @@
           if (arr.length === 3) arr.push(1);
           return arr;
         }
+      
+        static ArrayToRBGA(arr) {
+          if (arr.length === 3) arr.push(1);
+          return `rgba(${arr.join(',')})`;
+        }
       }
       window.TilePaletteChecker = class TilePaletteChecker {
         constructor() {
@@ -838,10 +843,8 @@
       
         check() {
           const palettesInt = this.canvasUtils.palettesInt;
-          console.log(palettesInt, this.canvasUtils.palettes);
           const tileData = this.canvasUtils.mapTiles((tile, i) => {
             const palette = this.findPalette(palettesInt, tile.colors);
-            if (i == 286) console.log(palette, tile.colors)
             return {
               id: i,
               valid: palette !== undefined,
@@ -1745,7 +1748,7 @@
         }
       
         get color() {
-          return this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
+          return ColorUtils.ArrayToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]]);
         }
       
         set color(colorArr) {
@@ -1758,7 +1761,7 @@
         }
       
         get altColor() {
-          return this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]]);
+          return ColorUtils.ArrayToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]]);
         }
       
         get rawAltColor() {
@@ -1804,13 +1807,9 @@
           palettes[paletteId] = palette;
           palette.forEach((c, i) => {
             const el = this.shadowRoot.querySelector(`[id="${paletteId}:${i}"]`);
-            if (el) el.style.backgroundColor = this.convertArrToRBGA(c);
+            if (el) el.style.backgroundColor = ColorUtils.ArrayToRBGA(c);
           });
           this.debounced_dispatchPaletteChange();
-        }
-      
-        convertArrToRBGA(arr) {
-          return `rgba(${arr.join(',')})`;
         }
       
         // select color
@@ -1862,8 +1861,8 @@
         updateSelected(color) {
           if (color[3] > 1) color[3] /= 255;
           this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]] = color;
-          this.selectedColorElement.style.backgroundColor = this.convertArrToRBGA(color);
-          this.shadowRoot.querySelector('#left-color').style.backgroundColor = this.convertArrToRBGA(color);
+          this.selectedColorElement.style.backgroundColor = ColorUtils.ArrayToRBGA(color);
+          this.shadowRoot.querySelector('#left-color').style.backgroundColor = ColorUtils.ArrayToRBGA(color);
           this.debounced_dispatchPaletteChange();
         }
       
@@ -2030,7 +2029,7 @@
                 ${i !== 0 ? '<div class="divider"></div>' : ''}
                 <div class="palette">
                   ${[...new Array(this.colorCount)].map((_, j) => `
-                    <div class="color ${this.isSelectedColor(i, j) ? 'selected' : ''} ${this.isSelectedAltColor(i, j) ? 'selected-alt' : ''}" style="background-color: ${this.convertArrToRBGA(this.palettes[i][j])};" id="${i}:${j}"></div>
+                    <div class="color ${this.isSelectedColor(i, j) ? 'selected' : ''} ${this.isSelectedAltColor(i, j) ? 'selected-alt' : ''}" style="background-color: ${ColorUtils.ArrayToRBGA(this.palettes[i][j])};" id="${i}:${j}"></div>
                   `).join('\n')}
                 </div>
               `).join('\n')}
@@ -2039,8 +2038,8 @@
               <div class="spacer"></div>
               <color-picker></color-picker>
               <div class="row">
-                <div id="left-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]])};"></div>
-                <div id="right-color" class="color-block" style="background-color: ${this.convertArrToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]])};"></div>
+                <div id="left-color" class="color-block" style="background-color: ${ColorUtils.ArrayToRBGA(this.palettes[this.selectedColorLocation[0]][this.selectedColorLocation[1]])};"></div>
+                <div id="right-color" class="color-block" style="background-color: ${ColorUtils.ArrayToRBGA(this.palettes[this.selectedAltColorLocation[0]][this.selectedAltColorLocation[1]])};"></div>
               </div>
             </div>
           `;
@@ -2588,7 +2587,6 @@
         }
       
         showGrid() {
-          ;
           this.showGrid_ = true;
           this.drawGrid();
         }
@@ -2895,36 +2893,40 @@
         }
       
         remapColors(colorMap) {
+          this.storeCanvas();
           // invert color map to make is easier to work with
-          colorMap = colorMap.map((m, i) => {
-            return Object.keys(colorMap[i]).reduce((a, k) => {
+          const inversedColors = {};
+          colorMap = colorMap.forEach((m, i) => {
+            Object.keys(colorMap[i]).forEach(k => {
               colorMap[i][k].forEach(c => {
-                a[c] = k;
+                inversedColors[c] = ColorUtils.RGBToArray(k);
               });
-              return a;
-            }, {});
+            });
           });
       
-          // const ctx = this.backgroundContext;
-          // const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-          // const data = imageData.data;
-          // const length = imageData.length;
-          // let i = 0;
-          // let r;
-          // let g;
-          // let b;
-          // let a;
-          //
-          // for (; i < length; i += 4) {
-          //   [r, g, b] = reverseColorMap[`rgba(${data[i]}, ${data[i + 1]}, ${data[i + 2]})`].replace('rgb(', '').replace(')', '').split(', ');
-          //   data[i] = r;
-          //   data[i + 1] = g;
-          //   data[i + 2] = b;
-          // }
-          //
-          // ctx.putImageData(imageData, 0, 0);
-        }
+          const imageData = this.getNormalizedCanvasData();
+          const pData = imageData.data;
+          const length = pData.length;
+          let i = 0;
+          let cs;
       
+          for (; i < length; i += 4) {
+            cs = inversedColors[`rgb(${pData[i]}, ${pData[i + 1]}, ${pData[i + 2]})`];
+            pData[i] = cs[0];
+            pData[i + 1] = cs[1];
+            pData[i + 2] = cs[2];
+          }
+      
+          const tempCanvas = this.tempCanvas;
+          tempCanvas.width = imageData.width;
+          tempCanvas.height = imageData.height;
+          this.tempContext.putImageData(imageData, 0, 0);
+      
+          // use draw image, this has an option for streatching
+          const ctx = this.backgroundContext;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(tempCanvas, 0, 0, imageData.width, imageData.height, 0, 0, this.canvasWidth, this.canvasHeight);
+        }
       
         // --- Tile manipulations ----------------------
       
@@ -5711,7 +5713,7 @@
       
       (function(){
           var t=document.createElement('template');
-          t.setAttribute('id','palette-extractor--template');
+          t.setAttribute('id','palette-mapper--template');
           t.innerHTML=`
           <style>
             :host {
@@ -5887,7 +5889,7 @@
         <div class="content">
           <div id="floating-color-block" class="floating-color-block"></div>
           <div class="title">Sort colors</div>
-          <div class="sub-header">Click and drag color across</div>
+          <div class="sub-header">Click and drag color across, Click on paletts color to change</div>
       
           <div class="row">
       
@@ -5915,9 +5917,9 @@
           document.body.insertAdjacentElement('beforeend', t);
         }());
       
-      customElements.define("palette-extractor", class extends HTMLElementExtended {
+      customElements.define("palette-mapper", class extends HTMLElementExtended {
         constructor() {
-          super("palette-extractor");
+          super("palette-mapper");
           this.colors = [];
           this.palettes = [];
           this.bound_ok = this.ok.bind(this);
@@ -6069,7 +6071,7 @@
               return a;
             }, obj)
           });
-          
+      
           this.dispatchEvent(new CustomEvent('change', {
             detail: {
               palettes,
@@ -6256,7 +6258,7 @@
               <div class="content">
                 <div id="floating-color-block" class="floating-color-block"></div>
                 <div class="title">Sort colors</div>
-                <div class="sub-header">Click and drag color across</div>
+                <div class="sub-header">Click and drag color across, Click on paletts color to change</div>
       
                 <div class="row">
       
@@ -6336,7 +6338,7 @@
           document.addEventListener('keydown', this.bound_onKeyPress);
           document.addEventListener('keyup', this.bound_onKeyRelease);
           document.addEventListener('mousemove', this.bound_onMouseMove);
-          document.querySelector('#extract-button').addEventListener('click', this.bound_extractButtonClick);
+          document.querySelector('#mapper-button').addEventListener('click', this.bound_extractButtonClick);
         }
       
         disconnectedCallback() {
@@ -6346,7 +6348,7 @@
           document.removeEventListener('keydown', this.bound_onKeyPress);
           document.removeEventListener('keyup', this.bound_onKeyRelease);
           document.removeEventListener('mousemove', this.bound_onMouseMove);
-          document.querySelector('#extract-button').removeEventListener('click', this.bound_extractButtonClick);
+          document.querySelector('#mapper-button').removeEventListener('click', this.bound_extractButtonClick);
         }
       
         get title() {
@@ -6489,8 +6491,8 @@
         }
       
         extractButtonClick(e) {
-          document.body.insertAdjacentHTML('beforeend', '<palette-extractor></palette-extractor>');
-          const el = document.querySelector('palette-extractor');
+          document.body.insertAdjacentHTML('beforeend', '<palette-mapper></palette-mapper>');
+          const el = document.querySelector('palette-mapper');
           el.addEventListener('change', (e) => {
             e.detail.colorMap.forEach((p, i) => {
               this.paletteTool.setPalette(i, Object.keys(p).map(ColorUtils.RGBToArray));
@@ -6533,7 +6535,7 @@
               <div class="settings-container">
                 <palette-tool count="4" color-count="4"></palette-tool>
                 <div style="padding: 10px;">
-                  <button id="extract-button">Convert cavas colors to Palette</button>
+                  <button id="mapper-button">Convert cavas colors to Palette</button>
                 </div>
               </div>
             </div>
@@ -6600,7 +6602,7 @@
         <div class="settings-container">
           <palette-tool count="4" color-count="4"></palette-tool>
           <div style="padding: 10px;">
-            <button id="extract-button">Convert cavas colors to Palette</button>
+            <button id="mapper-button">Convert cavas colors to Palette</button>
           </div>
         </div>
       </div>
