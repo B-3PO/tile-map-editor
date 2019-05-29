@@ -116,3 +116,10 @@ grid-settings {
   display: flex;
   flex-direction: column;
 }
+
+#extract-button {
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 8px 12px;
+}

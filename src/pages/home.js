@@ -1,5 +1,6 @@
 const { Page, html } = require('@webformula/pax-core');
 const TilePaletteChecker = require('../global/TilePaletteChecker');
+const ColorUtils = require('../global/ColorUtils');
 
 module.exports = class Home extends Page {
   constructor() {
@@ -11,6 +12,7 @@ module.exports = class Home extends Page {
     this.disableEntry = false;
     this.canvasPlaneX = 0;
     this.canvasPlaneY = 0;
+    this.bound_extractButtonClick = this.extractButtonClick.bind(this);
   }
 
   connectedCallback() {
@@ -36,6 +38,7 @@ module.exports = class Home extends Page {
     document.addEventListener('keydown', this.bound_onKeyPress);
     document.addEventListener('keyup', this.bound_onKeyRelease);
     document.addEventListener('mousemove', this.bound_onMouseMove);
+    document.querySelector('#extract-button').addEventListener('click', this.bound_extractButtonClick);
   }
 
   disconnectedCallback() {
@@ -45,6 +48,7 @@ module.exports = class Home extends Page {
     document.removeEventListener('keydown', this.bound_onKeyPress);
     document.removeEventListener('keyup', this.bound_onKeyRelease);
     document.removeEventListener('mousemove', this.bound_onMouseMove);
+    document.querySelector('#extract-button').removeEventListener('click', this.bound_extractButtonClick);
   }
 
   get title() {
@@ -142,7 +146,6 @@ module.exports = class Home extends Page {
     document.querySelector('.main-container').insertAdjacentHTML('beforebegin', '<upload-dialog></upload-dialog>');
     const el = document.querySelector('upload-dialog');
     el.canvas = this.canvas;
-    // el.paletteTool = this.paletteTool;
   }
 
   pencilTool() {
@@ -187,6 +190,17 @@ module.exports = class Home extends Page {
     }
   }
 
+  extractButtonClick(e) {
+    document.body.insertAdjacentHTML('beforeend', '<palette-extractor></palette-extractor>');
+    const el = document.querySelector('palette-extractor');
+    el.addEventListener('change', (e) => {
+      e.detail.colorMap.forEach((p, i) => {
+        this.paletteTool.setPalette(i, Object.keys(p).map(ColorUtils.RGBToArray));
+      })
+      this.canvas.remapColors(e.detail.colorMap);
+    });
+  }
+
   template() {
     return html`
       ${!this.disableEntry ? '<entry-dialog></entry-dialog>' : ''}
@@ -220,6 +234,9 @@ module.exports = class Home extends Page {
         </div>
         <div class="settings-container">
           <palette-tool count="4" color-count="4"></palette-tool>
+          <div style="padding: 10px;">
+            <button id="extract-button">Convert cavas colors to Palette</button>
+          </div>
         </div>
       </div>
     `;

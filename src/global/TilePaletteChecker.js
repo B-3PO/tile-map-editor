@@ -8,8 +8,10 @@ module.exports = class TilePaletteChecker {
 
   check() {
     const palettesInt = this.canvasUtils.palettesInt;
+    console.log(palettesInt, this.canvasUtils.palettes);
     const tileData = this.canvasUtils.mapTiles((tile, i) => {
       const palette = this.findPalette(palettesInt, tile.colors);
+      if (i == 286) console.log(palette, tile.colors)
       return {
         id: i,
         valid: palette !== undefined,

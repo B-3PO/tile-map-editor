@@ -14,6 +14,18 @@ module.exports = class CanvasUtils {
     return this.paletteElement.palettes.map(p => p.map(ColorUtils.RGBAtoInt));
   }
 
+  canvasColors() {
+    return Object.keys(
+      this
+        .mapTiles(t => Object.keys(t.colors))
+        .reduce((a, b) => {
+          b.forEach(c => a[c] = true)
+          return a;
+        }, {}))
+        .map(i => ColorUtils.intToRGBA(parseInt(i))
+    );
+  }
+
   forEachTile(fn) {
     this.tilesArray().forEach(fn);
   }

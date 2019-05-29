@@ -794,6 +794,37 @@ customElements.define('draw-canvas', class extends HTMLElementExtended {
     }
   }
 
+  remapColors(colorMap) {
+    // invert color map to make is easier to work with
+    colorMap = colorMap.map((m, i) => {
+      return Object.keys(colorMap[i]).reduce((a, k) => {
+        colorMap[i][k].forEach(c => {
+          a[c] = k;
+        });
+        return a;
+      }, {});
+    });
+
+    // const ctx = this.backgroundContext;
+    // const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+    // const data = imageData.data;
+    // const length = imageData.length;
+    // let i = 0;
+    // let r;
+    // let g;
+    // let b;
+    // let a;
+    //
+    // for (; i < length; i += 4) {
+    //   [r, g, b] = reverseColorMap[`rgba(${data[i]}, ${data[i + 1]}, ${data[i + 2]})`].replace('rgb(', '').replace(')', '').split(', ');
+    //   data[i] = r;
+    //   data[i + 1] = g;
+    //   data[i + 2] = b;
+    // }
+    //
+    // ctx.putImageData(imageData, 0, 0);
+  }
+
 
   // --- Tile manipulations ----------------------
 

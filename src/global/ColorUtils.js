@@ -14,4 +14,16 @@ module.exports = class ColorUtils {
     if (alpha > 1) alpha = alpha / 255;
     return [num >> 16 & 255, num >> 8  & 255, num & 255, alpha];
   }
+
+  static RGBToArray(rgbString) {
+    const arr = rgbString.replace('rgba(', '').replace('rgb(', '').replace(')', '').replace(/\s/g, '').split(',').map(i => parseInt(i));
+    if (arr.length > 3) arr.pop();
+    return arr;
+  }
+
+  static RGBAToArray(rgbString) {
+    const arr = rgbString.replace('rgba(', '').replace('rgb(', '').replace(')', '').replace(/\s/g, '').split(',').map(i => parseInt(i));
+    if (arr.length === 3) arr.push(1);
+    return arr;
+  }
 };
