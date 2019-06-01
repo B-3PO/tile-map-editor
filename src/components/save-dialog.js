@@ -16,15 +16,22 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
 
   connectedCallback() {
     this.bound_save = this.save.bind(this);
+    this.bound_cancel = this.cancel.bind(this);
     this.saveButton.addEventListener('click', this.bound_save);
+    this.cancelButton.addEventListener('click', this.bound_cancel);
   }
 
   disconnectedCallback() {
     this.saveButton.removeEventListener('click', this.bound_save);
+    this.cancelButton.removeEventListener('click', this.bound_cancel);
   }
 
   get saveButton() {
     return this.shadowRoot.querySelector('#save-button');
+  }
+
+  get cancelButton() {
+    return this.shadowRoot.querySelector('#cancel-button');
   }
 
   get filetype() {
@@ -59,13 +66,19 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
   }
 
   save() {
-    this.downloadFile();
-    this.dispatchEvent(new CustomEvent('save', {
-      detail: {
-        fileName: this.fileName,
-        filetype: this.filetype
-      }
-    }));
+    try {
+      this.downloadFile();
+      this.dispatchEvent(new CustomEvent('save', {
+        detail: {
+          fileName: this.fileName,
+          filetype: this.filetype
+        }
+      }));
+      this.remove();
+    } catch (e) {}
+  }
+
+  cancel() {
     this.remove();
   }
 
@@ -272,6 +285,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
 
           <div class="controls">
             <button id="save-button">save</button>
+            <button id="cancel-button">cancel</button>
           </div>
         </div>
       </div>

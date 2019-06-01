@@ -23,6 +23,7 @@ module.exports = class Settings {
   saveColorMap({ label, map }) {
     this.data.colorMaps.push({ id: Date.now(), label, map });
     this.store();
+    document.dispatchEvent(new CustomEvent('settings-stored'));
   }
 
   removePalette(id) {

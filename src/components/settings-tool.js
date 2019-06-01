@@ -5,8 +5,6 @@ const {
   css
 } = require('@webformula/pax-core');
 const Settings = require('../global/Settings.js');
-// const Utils = require('../global/utils.js');
-// const ColorUtils = require('../global/ColorUtils.js');
 
 customElements.define('settings-tool', class extends HTMLElementExtended {
   constructor() {
@@ -14,7 +12,9 @@ customElements.define('settings-tool', class extends HTMLElementExtended {
     this.settings = new Settings();
     this.bound_saveCurrentPalettes = this.saveCurrentPalettes.bind(this);
     this.bound_clearPalette = this.clearPalette.bind(this);
+    this.bound_clearMap = this.clearMap.bind(this);
     this.bound_loadPalette = this.loadPalette.bind(this);
+    this.bound_render = this.render.bind(this);
     this.cloneTemplate(true);
   }
 
@@ -30,13 +30,16 @@ customElements.define('settings-tool', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('#save-current-palette-button').addEventListener('click', this.bound_saveCurrentPalettes);
     [...this.shadowRoot.querySelectorAll('.clear-palette-button')].forEach(el => el.addEventListener('click', this.bound_clearPalette));
     [...this.shadowRoot.querySelectorAll('.load-palette-button')].forEach(el => el.addEventListener('click', this.bound_loadPalette));
-
+    [...this.shadowRoot.querySelectorAll('.clear-map-button')].forEach(el => el.addEventListener('click', this.bound_clearMap));
+    document.addEventListener('settings-stored', this.bound_render);
   }
 
   removeEvents() {
     this.shadowRoot.querySelector('#save-current-palette-button').removeEventListener('click', this.bound_saveCurrentPalettes);
     [...this.shadowRoot.querySelectorAll('.clear-palette-button')].forEach(el => el.removeEventListener('click', this.bound_clearPalette));
     [...this.shadowRoot.querySelectorAll('.load-palette-button')].forEach(el => el.removeEventListener('click', this.bound_loadPalette));
+    [...this.shadowRoot.querySelectorAll('.clear-map-button')].forEach(el => el.removeEventListener('click', this.bound_clearMap));
+    document.removeEventListener('settings-stored', this.bound_render);
   }
 
   get paletteTool() {
@@ -60,6 +63,11 @@ customElements.define('settings-tool', class extends HTMLElementExtended {
     this.settings.getPaletteGroup(target.getAttribute('group-id')).palettes.forEach((palette, i) => {
       this.paletteTool.setPalette(i, palette);
     });
+  }
+
+  clearMap({ target }) {
+    this.settings.removeColorMap(target.getAttribute('group-id'));
+    this.render();
   }
 
   styles() {
@@ -171,6 +179,21 @@ customElements.define('settings-tool', class extends HTMLElementExtended {
                     ${palette.map(c => html`<div class="color" style="background-color: ${ColorUtils.ArrayToRBGA(c)};"></div>`).join('\n')}
                   </div>
                 `).join('\n')}
+              </div>
+            `).join('\n')}
+          </div>
+        </div>
+
+
+        <div class="subtitle" style="margin-top: 48px;">Saved Color maps</div>
+        <div>
+          <div class="sub">
+            ${this.settings.colorMaps.map(({id, label, map}) => html`
+              <div class="palette-group">
+                <div class="row" style="padding: 8px;">
+                  <label style="flex: 1;">${label}</label>
+                  <button class="clear-map-button" style="margin-right: 8px;" group-id="${id}">clear</button>
+                </div>
               </div>
             `).join('\n')}
           </div>

@@ -5,10 +5,12 @@ const {
   css
 } = require('@webformula/pax-core');
 const CanvasUtils = require('../global/CanvasUtils.js');
+const Settings = require('../global/Settings.js');
 
 customElements.define('palette-mapper', class extends HTMLElementExtended {
   constructor() {
     super();
+    this.settings = new Settings();
     this.colors = [];
     this.palettes = [];
     this.bound_ok = this.ok.bind(this);
@@ -27,6 +29,8 @@ customElements.define('palette-mapper', class extends HTMLElementExtended {
     this.colors = this.canvasUtils.canvasColors().reverse();
     this.palettes = this.canvasUtils.palettes;
     this.render();
+
+    this.checkStoredForMatch();
   }
 
   disconnectedCallback() {
@@ -61,18 +65,63 @@ customElements.define('palette-mapper', class extends HTMLElementExtended {
     this.shadowRoot.removeEventListener('click', this.bound_paletteColorClock);
   }
 
-  paletteColorClick(e) {
-    if (this.allowColorSelect && e.target.classList.contains('color-block')) {
-      this.slectedPalleteColor.style.backgroundColor = e.target.style.backgroundColor;
+  checkStoredForMatch() {
+    const stored = this.settings.colorMaps;
+    const foundIndex = stored.findIndex(({ map: { originalColors, originalPalettes } }) => {
+      if (!this.compareArrOfColors(this.colors, originalColors)) return false;
+      // TODO do i need to verify the original palettes
+      return true;
+    });
+    if (foundIndex > -1) {
+      const found = stored[foundIndex];
+      const combinedMap = {};
+      const palettesColors = found.map.colorMap.reduce((a, b) => {
+        const keys = Object.keys(b);
+        keys.forEach(key => {
+          if (!combinedMap[key]) combinedMap[key] = [];
+          combinedMap[key] = combinedMap[key].concat(b[key]);
+        });
+        return a.concat(keys);
+      }, []);
+
+      [...this.shadowRoot.querySelectorAll('.colors')].forEach(el => el.style.opacity = 0);
+      [...this.shadowRoot.querySelectorAll('.palette-color')].forEach((el, i) => {
+        el.style.backgroundColor = palettesColors[i];
+        combinedMap[palettesColors[i]].forEach(color => {
+          let rgba = color.replace('rgb(', '').replace(')', '').replace(/\s/g, '').split(',');
+          rgba.push('1');
+          rgba = `rgba(${rgba.join(',')})`;
+          this.injectColorIntoContainer(el.parentNode.parentNode.querySelector('.picked-colors-container'), color, this.colors.indexOf(rgba));
+        });
+      });
+    }
+  }
+
+  compareArrOfColors(a, b) {
+    if (a.length !== b.length) return false;
+
+    const length = a.length;
+    let i = 0;
+
+    for(; i < length; i += 1) {
+      if (a[i] !== b[i]) return false;
     }
 
-    if (this.slectedPalleteColor) {
-      this.slectedPalleteColor.classList.remove('palette-color-selected');
-      this.slectedPalleteColor = undefined;
+    return true;
+  }
+
+  paletteColorClick(e) {
+    if (this.allowColorSelect && e.target.classList.contains('color-block')) {
+      this.slectedPaletteColor.style.backgroundColor = e.target.style.backgroundColor;
+    }
+
+    if (this.slectedPaletteColor) {
+      this.slectedPaletteColor.classList.remove('palette-color-selected');
+      this.slectedPaletteColor = undefined;
       this.allowColorSelect = false;
     } else if (e.target.classList.contains('palette-color')) {
       e.target.classList.add('palette-color-selected');
-      this.slectedPalleteColor = e.target;
+      this.slectedPaletteColor = e.target;
       this.allowColorSelect = true;
     }
   }
@@ -160,6 +209,16 @@ customElements.define('palette-mapper', class extends HTMLElementExtended {
         return a;
       }, obj)
     });
+    if (this.shadowRoot.querySelector('input[type="checkbox"]').checked) {
+      this.settings.saveColorMap({
+        label: 'one',
+        map: {
+          originalColors: this.colors,
+          originalPalettes: palettes,
+          colorMap
+        }
+      });
+    }
 
     this.dispatchEvent(new CustomEvent('change', {
       detail: {
@@ -355,7 +414,7 @@ customElements.define('palette-mapper', class extends HTMLElementExtended {
             <div class="column" style="padding-right: 24px;">
               <div class="colors-container column">
                 ${this.colors.map((c, i) => html`
-                  <div class="color-block" style="background-color: ${c}" color-id="${i}" is-picked="false"></div>
+                  <div class="color-block colors" style="background-color: ${c}" color-id="${i}" is-picked="false"></div>
                 `).join('\n')}
               </div>
             </div>
@@ -379,6 +438,11 @@ customElements.define('palette-mapper', class extends HTMLElementExtended {
           </div>
 
           <div class="row" style="margin-top: 24px;">
+            <div class="row">
+              <label for="store">store: </label>
+              <input type="checkbox" name="store">
+            </div>
+            <span style="flex: 1;"></span>
             <button id="ok">ok</button>
             <button id="cancel">Cancel</button>
           </div>
