@@ -1,4 +1,5 @@
-const { stripIndents } = require('@webformula/pax-core');
+// const { stripIndents } = require('@webformula/pax-core');
+const { stripIndents } = require('common-tags');
 const CanvasToFileCore = require('./CanvasToFileCore');
 
 module.exports = class CanvasToGameboyC {
@@ -36,18 +37,16 @@ module.exports = class CanvasToGameboyC {
     const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
       ${this.getComentBlock(fileName, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      
+      /* CGBpalette entries. */
+      unsigned char ${varName}PaletteEntries[${tileCount}] = {
+        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
+      };
 
-      ${`
-/* CGBpalette entries. */
-unsigned char ${varName}PaletteEntries[${tileCount}] = {
-  ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
-};
-
-/* Start of tile array. */
-unsigned char ${varName}[${tileArray.length}] = {
-  ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '', ',').replace(/,\s*$/, "")}
-};
-      `}
+      /* Start of tile array. */
+      unsigned char ${varName}[${tileArray.length}] = {
+        ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '', ',').replace(/,\s*$/, "")}
+      };
     `;
   }
 
@@ -66,13 +65,11 @@ unsigned char ${varName}[${tileArray.length}] = {
         `;
       }).join('\n')}
 
-      ${stripIndents`
       /* CGBpalette entries. */
       extern unsigned char ${varName}PaletteEntries[];
 
       /* Start of tile array. */
       extern unsigned char ${varName}[];
-      `}
     `;
   }
 
@@ -81,14 +78,11 @@ unsigned char ${varName}[${tileArray.length}] = {
     const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
       ${this.getComentBlock(`${fileName}Map`, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
-
-      ${`
-/* map array. */
-unsigned char ${varName}Map[${mapping.length}] = {
-  ${this.canvasToFileCore.sliceJoinArr(mapping, 8, '', ',').replace(/,\s*$/, "")}
-};
-      `}
-    `;
+      ${stripIndents`
+      /* map array. */
+      unsigned char ${varName}Map[${mapping.length}] = {`}\n` +
+      this.canvasToFileCore.sliceJoinArr(mapping, 20, '', ',').replace(/,\s*$/, "") +
+      '\n};\n';
   }
 
   formatHMapFile(fileName, varName, mapping, tileArray) {
@@ -96,10 +90,8 @@ unsigned char ${varName}Map[${mapping.length}] = {
     return stripIndents`
       ${this.getComentBlock(`${fileName}Map`, mapping.length, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
 
-      ${stripIndents`
       /* map array. */
       extern unsigned char ${varName}Map[];
-      `}
     `;
   }
 

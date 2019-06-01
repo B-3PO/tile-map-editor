@@ -32,19 +32,9 @@ module.exports = class CanvasToFileCore {
     const palettes = this.createPaletteForFile();
     const tilePaletteArray = this.createTilePaletteArray();
     const tileArray = this.convertTileArray(this.rawTileData, palettes);
-
-    const flattenedTiles = tileArray.reduce((a, b) => a.concat(b), []);
-    const tileMap = this.createTileMap({ mapping: tileArray.reduce((a, b, i) => {
-      a[i] = i;
-      return a;
-    }, {}) });
-
-    // TODO fix dedup`
-    // const dedupedTiles = this.dedupTiles(tileArray);
-    // const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
-    // NOTE dedupedTiles mapping seems to be broken
-    // const tileMap = this.createTileMap(dedupedTiles);
-    // console.log(dedupedTiles)
+    const dedupedTiles = this.dedupTiles(tileArray);
+    const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
+    const tileMap = this.createTileMap(dedupedTiles);
 
     return {
       canvas: this.canvas,
@@ -66,8 +56,8 @@ module.exports = class CanvasToFileCore {
   }
 
   createTilePaletteArray() {
-    const { tileValidationData } = this.tilePaletteChecker.check();
-    return tileValidationData.map(d => `0x0${d.palette}`);
+    const { tileData } = this.tilePaletteChecker.check();
+    return tileData.map(d => `0x0${d.palette}`);
   }
 
   convertTileArray(tileArray, palettes) {
@@ -87,7 +77,7 @@ module.exports = class CanvasToFileCore {
       tempArr = [];
       for (j = 0; j < rowsPerTile; j += 1) {
         startingPixel = j * tileWidth;
-        palette = palettes[this.validityData.tileValidationData[i].palette];
+        palette = palettes[this.validityData.tileData[i].palette];
         convertedRow = this.convertPixelsToIndexedColor(tileArray[i].slice(startingPixel, startingPixel + tileWidth), palette);
         tempArr = tempArr.concat(this.createTilePixelRow(convertedRow));
       }
@@ -102,55 +92,23 @@ module.exports = class CanvasToFileCore {
     return rgbaArr.map(rgba => this.matchColorToPalette(this.convertToRGBInt(rgba), palette));
   }
 
+  arrayUnique(arr) {
+    const newArr = [];
+    arr.forEach(a => {
+      const found = newArr.find(b => this.compareTiles(a, b));
+      if (!found) newArr.push(a);
+    });
+    return newArr;
+  }
+
   dedupTiles(nestedTiles) {
-    const indexedTiles = nestedTiles.map((a, i) => a.concat(i));
-    const mapping = indexedTiles.reduce((a, b, i) => {
-      a[i] = b[b.length-1];
-      return a;
-    }, {});
-    let length = nestedTiles.length;
-    let i = 0;
-    let j;
-    let arr = [];
-
-    for(; i < length; i += 1) {
-      arr.push(indexedTiles[i]);
-
-      for (j = i + 1; j < length; j += 1) {
-        if (this.compareTiles(indexedTiles[i], indexedTiles[j])) {
-
-
-          // NOTE this seems to be wrong
-          // create mapping of what tiles go where
-          mapping[indexedTiles[j][16]] = i;
-
-          // splice from array
-          indexedTiles.splice(j, 1);
-          length -= 1;
-        }
-      }
-    }
-
-    arr.forEach(a => a.pop());
-
-    return {
-      tiles: arr,
-      mapping
-    };
+    const tiles = this.arrayUnique(nestedTiles);
+    const mapping = nestedTiles.map(a => tiles.findIndex(b => this.compareTiles(a, b)));
+    return { tiles, mapping };
   }
 
   compareTiles(one, two) {
-    const length = one.length;
-    let i = 0;
-    let j;
-
-    for(; i < length; i += 1) {
-      for(j = 0; j < length; j += 1) {
-        if (one[0] !== two[0]) return false;
-      }
-    }
-
-    return true
+    return one.join('') === two.join('');
   }
 
   createTilePixelRow(pixels) {
