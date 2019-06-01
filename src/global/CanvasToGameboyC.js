@@ -1,5 +1,4 @@
-// const { stripIndents } = require('@webformula/pax-core');
-const { stripIndents } = require('common-tags');
+const { stripIndents } = require('@webformula/pax-core');
 const CanvasToFileCore = require('./CanvasToFileCore');
 
 module.exports = class CanvasToGameboyC {
@@ -37,7 +36,7 @@ module.exports = class CanvasToGameboyC {
     const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     return stripIndents`
       ${this.getComentBlock(fileName, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
-      
+
       /* CGBpalette entries. */
       unsigned char ${varName}PaletteEntries[${tileCount}] = {
         ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}

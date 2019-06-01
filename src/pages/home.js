@@ -111,6 +111,13 @@ module.exports = class Home extends Page {
     //   [11, 13, 13, 1],
     //   [0, 0, 0, 1]
     // ]);
+
+    // this.paletteTool.setPalette(0, [
+    //   [208, 32, 127, 1],
+    //   [153, 23, 93, 1],
+    //   [97, 15, 59, 1],
+    //   [0, 0, 0, 1]
+    // ]);
   }
 
   centerCanvas() {
@@ -234,9 +241,16 @@ module.exports = class Home extends Page {
         </div>
         <div class="settings-container">
           <palette-tool count="4" color-count="4"></palette-tool>
+
+          <div class="divider"></div>
+
           <div style="padding: 10px;">
             <button id="mapper-button">Convert cavas colors to Palette</button>
           </div>
+
+          <div class="divider"></div>
+
+          <settings-tool></settings-tool>
         </div>
       </div>
     `;

@@ -16,6 +16,8 @@ require('./components/save-dialog.js');
 require('./components/upload-dialog.js');
 require('./components/tile-palette-fixer.js');
 require('./components/palette-mapper.js');
+require('./components/settings-tool.js');
+require('./components/save-palettes-dialog.js');
 
 global.loadFolder('src/global');
 

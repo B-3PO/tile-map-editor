@@ -50,6 +50,15 @@ grid-settings {
   right: 8px;
 }
 
+.divider {
+  width: 100%;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  margin-left: 4px;
+  margin-right: 2px;
+  border-top: 1px solid #999;
+}
+
 
 /* --- canvas arrea --- */
 
