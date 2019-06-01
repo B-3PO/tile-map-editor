@@ -28,13 +28,14 @@ module.exports = class TilePaletteChecker {
   }
 
   findPalette(palettes, colorObj) {
-    const p = Object.keys(Object.keys(colorObj)
-      .map(cInt => this.findColorInPalettes(palettes, parseInt(cInt)))
-      .reduce((a, palette) => {
-        a[palette] = true;
-        return a;
-      }, {}));
-    return (p.length === 1 && p[0] !== '-1') ? p[0] : undefined;
+    const palLen = palettes.length;
+    const colors = Object.keys(colorObj).map(i => parseInt(i));
+    let i = 0;
+    for(; i < palLen; i += 1) {
+      if (colors.filter(cInt => !palettes[i].includes(cInt)).length === 0) {
+        return i;
+      }
+    }
   }
 
   findColorInPalettes(palettes, cInt) {

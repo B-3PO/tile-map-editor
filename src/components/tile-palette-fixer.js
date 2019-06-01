@@ -200,7 +200,7 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
 
   fixAll() {
     const originalColors = this.colors.reduce((a, c, i) => {
-      a[this.drawCanvas.RGBAtoInt(c)] = this.colorConversions[i] || this.colors[i];
+      a[ColorUtils.RGBAtoInt(c)] = this.colorConversions[i] || this.colors[i];
       return a;
     }, {})
     this.drawCanvas.remapTilesPalette(originalColors);
