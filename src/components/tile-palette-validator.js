@@ -230,7 +230,7 @@ customElements.define('tile-palette-validator', class extends HTMLElementExtende
   fixTile() {
     this.shadowRoot.querySelector('div').insertAdjacentHTML('afterbegin', `<tile-palette-fixer tile-width="${this.canvas.tileWidth}" tile-height="${this.canvas.tileHeight}"></tile-palette-fixer>`);
     const el = this.shadowRoot.querySelector('tile-palette-fixer');
-    el.setData(this.selected, this.tileData[this.selected].pixels, this.canvas.getAllColors(), this.canvas);
+    el.setData(this.selected, this.tileData[this.selected].pixels, this.paletteTool.palettes.reduce((a, b) => a.concat(b), []), this.canvas);
     el.addEventListener('change', () => {
       this.onPaletteChange();
     });

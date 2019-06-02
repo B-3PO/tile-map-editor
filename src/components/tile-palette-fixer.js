@@ -109,9 +109,9 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     this.selected_ = value;
   }
 
-  setData(selected, tileData, allColors, drawCanvas) {
+  setData(selected, tileData, paletteColors, drawCanvas) {
     this.selected = selected;
-    this.allColors = allColors;
+    this.allColors = paletteColors;
     this.tileData = tileData;
     this.drawCanvas = drawCanvas;
   }
