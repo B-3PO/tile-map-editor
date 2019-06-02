@@ -264,19 +264,9 @@
           const palettes = this.createPaletteForFile();
           const tilePaletteArray = this.createTilePaletteArray();
           const tileArray = this.convertTileArray(this.rawTileData, palettes);
-      
-          const flattenedTiles = tileArray.reduce((a, b) => a.concat(b), []);
-          const tileMap = this.createTileMap({ mapping: tileArray.reduce((a, b, i) => {
-            a[i] = i;
-            return a;
-          }, {}) });
-      
-          // TODO fix dedup`
-          // const dedupedTiles = this.dedupTiles(tileArray);
-          // const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
-          // NOTE dedupedTiles mapping seems to be broken
-          // const tileMap = this.createTileMap(dedupedTiles);
-          // console.log(dedupedTiles)
+          const dedupedTiles = this.dedupTiles(tileArray);
+          const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
+          const tileMap = this.createTileMap(dedupedTiles);
       
           return {
             canvas: this.canvas,
@@ -298,8 +288,8 @@
         }
       
         createTilePaletteArray() {
-          const { tileValidationData } = this.tilePaletteChecker.check();
-          return tileValidationData.map(d => `0x0${d.palette}`);
+          const { tileData } = this.tilePaletteChecker.check();
+          return tileData.map(d => `0x0${d.palette}`);
         }
       
         convertTileArray(tileArray, palettes) {
@@ -319,7 +309,7 @@
             tempArr = [];
             for (j = 0; j < rowsPerTile; j += 1) {
               startingPixel = j * tileWidth;
-              palette = palettes[this.validityData.tileValidationData[i].palette];
+              palette = palettes[this.validityData.tileData[i].palette];
               convertedRow = this.convertPixelsToIndexedColor(tileArray[i].slice(startingPixel, startingPixel + tileWidth), palette);
               tempArr = tempArr.concat(this.createTilePixelRow(convertedRow));
             }
@@ -334,55 +324,23 @@
           return rgbaArr.map(rgba => this.matchColorToPalette(this.convertToRGBInt(rgba), palette));
         }
       
+        arrayUnique(arr) {
+          const newArr = [];
+          arr.forEach(a => {
+            const found = newArr.find(b => this.compareTiles(a, b));
+            if (!found) newArr.push(a);
+          });
+          return newArr;
+        }
+      
         dedupTiles(nestedTiles) {
-          const indexedTiles = nestedTiles.map((a, i) => a.concat(i));
-          const mapping = indexedTiles.reduce((a, b, i) => {
-            a[i] = b[b.length-1];
-            return a;
-          }, {});
-          let length = nestedTiles.length;
-          let i = 0;
-          let j;
-          let arr = [];
-      
-          for(; i < length; i += 1) {
-            arr.push(indexedTiles[i]);
-      
-            for (j = i + 1; j < length; j += 1) {
-              if (this.compareTiles(indexedTiles[i], indexedTiles[j])) {
-      
-      
-                // NOTE this seems to be wrong
-                // create mapping of what tiles go where
-                mapping[indexedTiles[j][16]] = i;
-      
-                // splice from array
-                indexedTiles.splice(j, 1);
-                length -= 1;
-              }
-            }
-          }
-      
-          arr.forEach(a => a.pop());
-      
-          return {
-            tiles: arr,
-            mapping
-          };
+          const tiles = this.arrayUnique(nestedTiles);
+          const mapping = nestedTiles.map(a => tiles.findIndex(b => this.compareTiles(a, b)));
+          return { tiles, mapping };
         }
       
         compareTiles(one, two) {
-          const length = one.length;
-          let i = 0;
-          let j;
-      
-          for(; i < length; i += 1) {
-            for(j = 0; j < length; j += 1) {
-              if (one[0] !== two[0]) return false;
-            }
-          }
-      
-          return true
+          return one.join('') === two.join('');
         }
       
         createTilePixelRow(pixels) {
@@ -460,17 +418,15 @@
           return stripIndents`
             ${this.getComentBlock(fileName, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
       
-            ${`
-      /* CGBpalette entries. */
-      unsigned char ${varName}PaletteEntries[${tileCount}] = {
-        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
-      };
+            /* CGBpalette entries. */
+            unsigned char ${varName}PaletteEntries[${tileCount}] = {
+              ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
+            };
       
-      /* Start of tile array. */
-      unsigned char ${varName}[${tileArray.length}] = {
-        ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '', ',').replace(/,\s*$/, "")}
-      };
-            `}
+            /* Start of tile array. */
+            unsigned char ${varName}[${tileArray.length}] = {
+              ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '', ',').replace(/,\s*$/, "")}
+            };
           `;
         }
       
@@ -489,13 +445,11 @@
               `;
             }).join('\n')}
       
-            ${stripIndents`
             /* CGBpalette entries. */
             extern unsigned char ${varName}PaletteEntries[];
       
             /* Start of tile array. */
             extern unsigned char ${varName}[];
-            `}
           `;
         }
       
@@ -504,14 +458,11 @@
           const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
           return stripIndents`
             ${this.getComentBlock(`${fileName}Map`, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
-      
-            ${`
-      /* map array. */
-      unsigned char ${varName}Map[${mapping.length}] = {
-        ${this.canvasToFileCore.sliceJoinArr(mapping, 8, '', ',').replace(/,\s*$/, "")}
-      };
-            `}
-          `;
+            ${stripIndents`
+            /* map array. */
+            unsigned char ${varName}Map[${mapping.length}] = {`}\n` +
+            this.canvasToFileCore.sliceJoinArr(mapping, 20, '', ',').replace(/,\s*$/, "") +
+            '\n};\n';
         }
       
         formatHMapFile(fileName, varName, mapping, tileArray) {
@@ -519,10 +470,8 @@
           return stripIndents`
             ${this.getComentBlock(`${fileName}Map`, mapping.length, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
       
-            ${stripIndents`
             /* map array. */
             extern unsigned char ${varName}Map[];
-            `}
           `;
         }
       
@@ -836,6 +785,49 @@
           return `rgba(${arr.join(',')})`;
         }
       }
+      window.Settings = class Settings {
+        constructor() {
+          this.data = JSON.parse(window.localStorage.getItem('tme_settings') || '{ "palettes": [], "colorMaps": [] }');
+        }
+      
+        store() {
+          window.localStorage.setItem('tme_settings', JSON.stringify(this.data));
+        }
+      
+        get palettes() {
+          return this.data.palettes || [];
+        }
+      
+        get colorMaps() {
+          return this.data.colorMaps || [];
+        }
+      
+        savePalettes({ label, palettes }) {
+          this.data.palettes.push({ id: Date.now(), label, palettes });
+          this.store();
+        }
+      
+        saveColorMap({ label, map }) {
+          this.data.colorMaps.push({ id: Date.now(), label, map });
+          this.store();
+          document.dispatchEvent(new CustomEvent('settings-stored'));
+        }
+      
+        removePalette(id) {
+          this.data.palettes = this.data.palettes.filter(o => parseInt(o.id) !== parseInt(id));
+          this.store();
+        }
+      
+        removeColorMap(id) {
+          this.data.colorMaps = this.data.colorMaps.filter(o => parseInt(o.id) !== parseInt(id));
+          this.store();
+        }
+      
+        getPaletteGroup(id) {
+          id = parseInt(id);
+          return (this.palettes.filter(({ id }) => id === id) || [])[0];
+        }
+      }
       window.TilePaletteChecker = class TilePaletteChecker {
         constructor() {
           this.canvasUtils = new CanvasUtils();
@@ -863,13 +855,14 @@
         }
       
         findPalette(palettes, colorObj) {
-          const p = Object.keys(Object.keys(colorObj)
-            .map(cInt => this.findColorInPalettes(palettes, parseInt(cInt)))
-            .reduce((a, palette) => {
-              a[palette] = true;
-              return a;
-            }, {}));
-          return (p.length === 1 && p[0] !== '-1') ? p[0] : undefined;
+          const palLen = palettes.length;
+          const colors = Object.keys(colorObj).map(i => parseInt(i));
+          let i = 0;
+          for(; i < palLen; i += 1) {
+            if (colors.filter(cInt => !palettes[i].includes(cInt)).length === 0) {
+              return i;
+            }
+          }
         }
       
         findColorInPalettes(palettes, cInt) {
@@ -951,11 +944,13 @@
         }
       
         render() {
+          if (this.removeEvents) this.removeEvents();
           if (this.beforeRender) this.beforeRender();
           const renderBlock = this.shadowRoot.querySelector('render-block');
           if (!renderBlock) throw Error('Could not find <render-block>');
           renderBlock.innerHTML = this.template();
           if (this.afterRender) this.afterRender();
+          if (this.addEvents) this.addEvents();
         }
       
         // Called before render(). placeholder, can be overidden
@@ -964,6 +959,13 @@
         // Called after render(). placeholder, can be overidden
         // This does not include the initial cloneNode
         afterRender() {}
+      
+        // this is called when the component is connected
+        // This is also called after render, events are first remoed before render so you dont have multiple events
+        addEvents() {}
+        // this is called when the component is disconnected
+        // This is also called prior to render, after render addEvents is called. This will make sure you old elements dont retain events
+        removeEvents() {}
       
         // add css that will be injected to the template
         styles() {}
@@ -1804,7 +1806,7 @@
       
         setPalette(paletteId, palette) {
           const palettes = this.palettes;
-          palettes[paletteId] = palette;
+          palettes[paletteId] = palette.map(p => p);
           palette.forEach((c, i) => {
             const el = this.shadowRoot.querySelector(`[id="${paletteId}:${i}"]`);
             if (el) el.style.backgroundColor = ColorUtils.ArrayToRBGA(c);
@@ -4499,6 +4501,7 @@
       
           <div class="controls">
             <button id="save-button">save</button>
+            <button id="cancel-button">cancel</button>
           </div>
         </div>
       </div>
@@ -4515,15 +4518,22 @@
       
         connectedCallback() {
           this.bound_save = this.save.bind(this);
+          this.bound_cancel = this.cancel.bind(this);
           this.saveButton.addEventListener('click', this.bound_save);
+          this.cancelButton.addEventListener('click', this.bound_cancel);
         }
       
         disconnectedCallback() {
           this.saveButton.removeEventListener('click', this.bound_save);
+          this.cancelButton.removeEventListener('click', this.bound_cancel);
         }
       
         get saveButton() {
           return this.shadowRoot.querySelector('#save-button');
+        }
+      
+        get cancelButton() {
+          return this.shadowRoot.querySelector('#cancel-button');
         }
       
         get filetype() {
@@ -4558,13 +4568,19 @@
         }
       
         save() {
-          this.downloadFile();
-          this.dispatchEvent(new CustomEvent('save', {
-            detail: {
-              fileName: this.fileName,
-              filetype: this.filetype
-            }
-          }));
+          try {
+            this.downloadFile();
+            this.dispatchEvent(new CustomEvent('save', {
+              detail: {
+                fileName: this.fileName,
+                filetype: this.filetype
+              }
+            }));
+            this.remove();
+          } catch (e) {}
+        }
+      
+        cancel() {
           this.remove();
         }
       
@@ -4771,6 +4787,7 @@
       
                 <div class="controls">
                   <button id="save-button">save</button>
+                  <button id="cancel-button">cancel</button>
                 </div>
               </div>
             </div>
@@ -5492,7 +5509,7 @@
       
         fixAll() {
           const originalColors = this.colors.reduce((a, c, i) => {
-            a[this.drawCanvas.RGBAtoInt(c)] = this.colorConversions[i] || this.colors[i];
+            a[ColorUtils.RGBAtoInt(c)] = this.colorConversions[i] || this.colors[i];
             return a;
           }, {})
           this.drawCanvas.remapTilesPalette(originalColors);
@@ -5907,6 +5924,11 @@
           </div>
       
           <div class="row" style="margin-top: 24px;">
+            <div class="row">
+              <label for="store">store: </label>
+              <input type="checkbox" name="store">
+            </div>
+            <span style="flex: 1;"></span>
             <button id="ok">ok</button>
             <button id="cancel">Cancel</button>
           </div>
@@ -5920,6 +5942,7 @@
       customElements.define("palette-mapper", class extends HTMLElementExtended {
         constructor() {
           super("palette-mapper");
+          this.settings = new Settings();
           this.colors = [];
           this.palettes = [];
           this.bound_ok = this.ok.bind(this);
@@ -5938,6 +5961,8 @@
           this.colors = this.canvasUtils.canvasColors().reverse();
           this.palettes = this.canvasUtils.palettes;
           this.render();
+      
+          this.checkStoredForMatch();
         }
       
         disconnectedCallback() {
@@ -5972,18 +5997,63 @@
           this.shadowRoot.removeEventListener('click', this.bound_paletteColorClock);
         }
       
-        paletteColorClick(e) {
-          if (this.allowColorSelect && e.target.classList.contains('color-block')) {
-            this.slectedPalleteColor.style.backgroundColor = e.target.style.backgroundColor;
+        checkStoredForMatch() {
+          const stored = this.settings.colorMaps;
+          const foundIndex = stored.findIndex(({ map: { originalColors, originalPalettes } }) => {
+            if (!this.compareArrOfColors(this.colors, originalColors)) return false;
+            // TODO do i need to verify the original palettes
+            return true;
+          });
+          if (foundIndex > -1) {
+            const found = stored[foundIndex];
+            const combinedMap = {};
+            const palettesColors = found.map.colorMap.reduce((a, b) => {
+              const keys = Object.keys(b);
+              keys.forEach(key => {
+                if (!combinedMap[key]) combinedMap[key] = [];
+                combinedMap[key] = combinedMap[key].concat(b[key]);
+              });
+              return a.concat(keys);
+            }, []);
+      
+            [...this.shadowRoot.querySelectorAll('.colors')].forEach(el => el.style.opacity = 0);
+            [...this.shadowRoot.querySelectorAll('.palette-color')].forEach((el, i) => {
+              el.style.backgroundColor = palettesColors[i];
+              combinedMap[palettesColors[i]].forEach(color => {
+                let rgba = color.replace('rgb(', '').replace(')', '').replace(/\s/g, '').split(',');
+                rgba.push('1');
+                rgba = `rgba(${rgba.join(',')})`;
+                this.injectColorIntoContainer(el.parentNode.parentNode.querySelector('.picked-colors-container'), color, this.colors.indexOf(rgba));
+              });
+            });
+          }
+        }
+      
+        compareArrOfColors(a, b) {
+          if (a.length !== b.length) return false;
+      
+          const length = a.length;
+          let i = 0;
+      
+          for(; i < length; i += 1) {
+            if (a[i] !== b[i]) return false;
           }
       
-          if (this.slectedPalleteColor) {
-            this.slectedPalleteColor.classList.remove('palette-color-selected');
-            this.slectedPalleteColor = undefined;
+          return true;
+        }
+      
+        paletteColorClick(e) {
+          if (this.allowColorSelect && e.target.classList.contains('color-block')) {
+            this.slectedPaletteColor.style.backgroundColor = e.target.style.backgroundColor;
+          }
+      
+          if (this.slectedPaletteColor) {
+            this.slectedPaletteColor.classList.remove('palette-color-selected');
+            this.slectedPaletteColor = undefined;
             this.allowColorSelect = false;
           } else if (e.target.classList.contains('palette-color')) {
             e.target.classList.add('palette-color-selected');
-            this.slectedPalleteColor = e.target;
+            this.slectedPaletteColor = e.target;
             this.allowColorSelect = true;
           }
         }
@@ -6071,6 +6141,16 @@
               return a;
             }, obj)
           });
+          if (this.shadowRoot.querySelector('input[type="checkbox"]').checked) {
+            this.settings.saveColorMap({
+              label: 'one',
+              map: {
+                originalColors: this.colors,
+                originalPalettes: palettes,
+                colorMap
+              }
+            });
+          }
       
           this.dispatchEvent(new CustomEvent('change', {
             detail: {
@@ -6266,7 +6346,7 @@
                   <div class="column" style="padding-right: 24px;">
                     <div class="colors-container column">
                       ${this.colors.map((c, i) => html`
-                        <div class="color-block" style="background-color: ${c}" color-id="${i}" is-picked="false"></div>
+                        <div class="color-block colors" style="background-color: ${c}" color-id="${i}" is-picked="false"></div>
                       `).join('\n')}
                     </div>
                   </div>
@@ -6290,8 +6370,651 @@
                 </div>
       
                 <div class="row" style="margin-top: 24px;">
+                  <div class="row">
+                    <label for="store">store: </label>
+                    <input type="checkbox" name="store">
+                  </div>
+                  <span style="flex: 1;"></span>
                   <button id="ok">ok</button>
                   <button id="cancel">Cancel</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      });
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','settings-tool--template');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+      }
+      
+      .divider {
+        border-bottom: 1px solid #999;
+      }
+      
+      .spacer {
+        padding-top: 12px;
+      }
+      
+      .top-row {
+        display: flex;
+        align-items: center;
+      }
+      
+      .title {
+        font-size: 18px;
+        font-weight: 400;
+        padding-left: 6px;
+        flex: 1;
+      }
+      
+      .subtitle {
+        font-size: 14px;
+        padding-left: 6px;
+        flex: 1;
+      }
+      
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .settings {
+        margin: 18px 0;
+      }
+      
+      .settings .sub {
+        margin-top: 6px;
+        margin-left: 12px;
+      }
+      
+      .setting-input {
+        width: 40px;
+        margin-right: 22px;
+      }
+      
+      .palette-container {
+        width: 312px;
+        margin: 6px;
+      }
+      
+      .palette {
+        display: flex;
+        flex-direction: row;
+        padding: 6px;
+      }
+      
+      .palette label {
+        font-size: 14px;
+        font-weight: bold;
+        color: #666;
+        padding-right: 12px;
+      }
+      
+      .palette button {
+        margin-left: 6px;
+      }
+      
+      .color {
+        flex: 1;
+        height: 24px;
+        border: 3px solid rgba(0,0,0,0);
+        box-sizing: border-box;
+      }
+          </style>
+          <render-block>
+            <div class="palette-container">
+        <div class="top-row">
+          <div class="title">Settings</div>
+        </div>
+      
+        <div class="row">
+          <button id="save-current-palette-button">Save current palettes</button>
+        </div>
+      
+        <div class="settings">
+          <div class="subtitle">Saved Palettes</div>
+      
+          <div class="sub">
+            
+          </div>
+        </div>
+      
+      
+        <div class="subtitle" style="margin-top: 48px;">Saved Color maps</div>
+        <div>
+          <div class="sub">
+            
+          </div>
+        </div>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("settings-tool", class extends HTMLElementExtended {
+        constructor() {
+          super("settings-tool");
+          this.settings = new Settings();
+          this.bound_saveCurrentPalettes = this.saveCurrentPalettes.bind(this);
+          this.bound_clearPalette = this.clearPalette.bind(this);
+          this.bound_clearMap = this.clearMap.bind(this);
+          this.bound_loadPalette = this.loadPalette.bind(this);
+          this.bound_render = this.render.bind(this);
+          this.cloneTemplate(true);
+        }
+      
+        connectedCallback() {
+          this.addEvents();
+        }
+      
+        disconnectedCallback() {
+          this.removeEvents();
+        }
+      
+        addEvents() {
+          this.shadowRoot.querySelector('#save-current-palette-button').addEventListener('click', this.bound_saveCurrentPalettes);
+          [...this.shadowRoot.querySelectorAll('.clear-palette-button')].forEach(el => el.addEventListener('click', this.bound_clearPalette));
+          [...this.shadowRoot.querySelectorAll('.load-palette-button')].forEach(el => el.addEventListener('click', this.bound_loadPalette));
+          [...this.shadowRoot.querySelectorAll('.clear-map-button')].forEach(el => el.addEventListener('click', this.bound_clearMap));
+          document.addEventListener('settings-stored', this.bound_render);
+        }
+      
+        removeEvents() {
+          this.shadowRoot.querySelector('#save-current-palette-button').removeEventListener('click', this.bound_saveCurrentPalettes);
+          [...this.shadowRoot.querySelectorAll('.clear-palette-button')].forEach(el => el.removeEventListener('click', this.bound_clearPalette));
+          [...this.shadowRoot.querySelectorAll('.load-palette-button')].forEach(el => el.removeEventListener('click', this.bound_loadPalette));
+          [...this.shadowRoot.querySelectorAll('.clear-map-button')].forEach(el => el.removeEventListener('click', this.bound_clearMap));
+          document.removeEventListener('settings-stored', this.bound_render);
+        }
+      
+        get paletteTool() {
+          return document.querySelector('palette-tool');
+        }
+      
+        saveCurrentPalettes() {
+          document.body.insertAdjacentHTML('beforeend', '<save-palettes-dialog></save-palettes-dialog>');
+          document.querySelector('save-palettes-dialog').addEventListener('save', ({ detail: { label, palettes } }) => {
+            this.settings.savePalettes({ label, palettes });
+            this.render();
+          });
+        }
+      
+        clearPalette({ target }) {
+          this.settings.removePalette(target.getAttribute('group-id'));
+          this.render();
+        }
+      
+        loadPalette({ target }) {
+          this.settings.getPaletteGroup(target.getAttribute('group-id')).palettes.forEach((palette, i) => {
+            this.paletteTool.setPalette(i, palette);
+          });
+        }
+      
+        clearMap({ target }) {
+          this.settings.removeColorMap(target.getAttribute('group-id'));
+          this.render();
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+            }
+      
+            .divider {
+              border-bottom: 1px solid #999;
+            }
+      
+            .spacer {
+              padding-top: 12px;
+            }
+      
+            .top-row {
+              display: flex;
+              align-items: center;
+            }
+      
+            .title {
+              font-size: 18px;
+              font-weight: 400;
+              padding-left: 6px;
+              flex: 1;
+            }
+      
+            .subtitle {
+              font-size: 14px;
+              padding-left: 6px;
+              flex: 1;
+            }
+      
+            .row {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .settings {
+              margin: 18px 0;
+            }
+      
+            .settings .sub {
+              margin-top: 6px;
+              margin-left: 12px;
+            }
+      
+            .setting-input {
+              width: 40px;
+              margin-right: 22px;
+            }
+      
+            .palette-container {
+              width: 312px;
+              margin: 6px;
+            }
+      
+            .palette {
+              display: flex;
+              flex-direction: row;
+              padding: 6px;
+            }
+      
+            .palette label {
+              font-size: 14px;
+              font-weight: bold;
+              color: #666;
+              padding-right: 12px;
+            }
+      
+            .palette button {
+              margin-left: 6px;
+            }
+      
+            .color {
+              flex: 1;
+              height: 24px;
+              border: 3px solid rgba(0,0,0,0);
+              box-sizing: border-box;
+            }
+          `;
+        }
+      
+        template() {
+          return html`
+            <div class="palette-container">
+              <div class="top-row">
+                <div class="title">Settings</div>
+              </div>
+      
+              <div class="row">
+                <button id="save-current-palette-button">Save current palettes</button>
+              </div>
+      
+              <div class="settings">
+                <div class="subtitle">Saved Palettes</div>
+      
+                <div class="sub">
+                  ${this.settings.palettes.map(({id, label, palettes}) => html`
+                    <div class="palette-group">
+                      <div class="row" style="padding: 8px;">
+                        <label style="flex: 1;">${label}</label>
+                        <button class="clear-palette-button" style="margin-right: 8px;" group-id="${id}">clear</button>
+                        <button class="load-palette-button" group-id="${id}">load</button>
+                      </div>
+                      ${palettes.map(palette => html`
+                        <div class="palette">
+                          ${palette.map(c => html`<div class="color" style="background-color: ${ColorUtils.ArrayToRBGA(c)};"></div>`).join('\n')}
+                        </div>
+                      `).join('\n')}
+                    </div>
+                  `).join('\n')}
+                </div>
+              </div>
+      
+      
+              <div class="subtitle" style="margin-top: 48px;">Saved Color maps</div>
+              <div>
+                <div class="sub">
+                  ${this.settings.colorMaps.map(({id, label, map}) => html`
+                    <div class="palette-group">
+                      <div class="row" style="padding: 8px;">
+                        <label style="flex: 1;">${label}</label>
+                        <button class="clear-map-button" style="margin-right: 8px;" group-id="${id}">clear</button>
+                      </div>
+                    </div>
+                  `).join('\n')}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      });
+      
+      (function(){
+          var t=document.createElement('template');
+          t.setAttribute('id','save-palettes-dialog--template');
+          t.innerHTML=`
+          <style>
+            :host {
+        display: block;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 11;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      
+      .container {
+        display: inline-block;
+        position: relative;
+        left: 50%;
+        top: 50%;
+        width: 360px;
+        height: auto;
+        transform: translate(-50%, -50%);
+      
+        background-color: #DDD;
+        border: 1px solid #999;
+        border-radius: 3px;
+        box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                    0 8px 10px 1px rgba(0,0,0,.14),
+                    0 3px 14px 2px rgba(0,0,0,.12);
+      }
+      
+      .title {
+        font-size: 22px;
+        color: #444;
+        margin-bottom: 24px;
+      }
+      
+      .sub-title {
+        font-size: 20px;
+        color: #444;
+        margin-bottom: 18px;
+      }
+      
+      .sub-header {
+        font-size: 16px;
+        color: #777;
+        margin-bottom: 4px;
+      }
+      
+      .content {
+        padding: 24px;
+      }
+      
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .column {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .controls {
+        margin-top: 24px;
+      }
+      
+      button {
+        align-items: center;
+        border: none;
+        border-radius: 4px;
+        box-sizing: border-box;
+        display: inline-flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 33px;
+        justify-content: center;
+        line-height: 32px;
+        min-width: 64px;
+        outline: none;
+        overflow: hidden;
+        padding: 0 8px 0 8px;
+        position: relative;
+        vertical-align: middle;
+        margin: 0;
+        background-color: white;
+      }
+      
+      button:hover {
+        cursor: pointer;
+        background-color: #EEE;
+      }
+      
+      .palette {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .color {
+        flex: 1;
+        height: 24px;
+        border: 3px solid rgba(0,0,0,0);
+        box-sizing: border-box;
+      }
+      
+      label {
+        padding-right: 4px;
+      }
+      
+      input {
+        width: 80px;
+      }
+          </style>
+          <render-block>
+            <div class="container">
+        <div class="content">
+          <div class="title">Save</div>
+      
+          <div class="row">
+            <label for="label">Label:</label>
+            <input name="label">
+          </div>
+      
+          <br/>
+      
+          <div class="column">
+            
+          </div>
+      
+          <br/>
+      
+          <div class="controls">
+            <button id="save-button">save</button>
+          </div>
+        </div>
+      </div>
+          </render-block>
+          `;
+          document.body.insertAdjacentElement('beforeend', t);
+        }());
+      
+      customElements.define("save-palettes-dialog", class extends HTMLElementExtended {
+        constructor() {
+          super("save-palettes-dialog");
+          this.cloneTemplate(true);
+        }
+      
+        connectedCallback() {
+          this.bound_save = this.save.bind(this);
+          this.saveButton.addEventListener('click', this.bound_save);
+        }
+      
+        disconnectedCallback() {
+          this.saveButton.removeEventListener('click', this.bound_save);
+        }
+      
+        get saveButton() {
+          return this.shadowRoot.querySelector('#save-button');
+        }
+      
+        get paletteTool() {
+          return document.querySelector('palette-tool');
+        }
+      
+        get palettes() {
+          return this.paletteTool.palettes || [];
+        }
+      
+        save() {
+          this.dispatchEvent(new CustomEvent('save', {
+            detail: {
+              label: this.shadowRoot.querySelector('input[name="label"]').value,
+              palettes: this.palettes
+            }
+          }));
+          this.remove();
+        }
+      
+        styles() {
+          return css`
+            :host {
+              display: block;
+              position: fixed;
+              top: 0;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              z-index: 11;
+              background-color: rgba(0, 0, 0, 0.5);
+            }
+      
+            .container {
+              display: inline-block;
+              position: relative;
+              left: 50%;
+              top: 50%;
+              width: 360px;
+              height: auto;
+              transform: translate(-50%, -50%);
+      
+              background-color: #DDD;
+              border: 1px solid #999;
+              border-radius: 3px;
+              box-shadow: 0 5px 5px -3px rgba(0,0,0,.2),
+                          0 8px 10px 1px rgba(0,0,0,.14),
+                          0 3px 14px 2px rgba(0,0,0,.12);
+            }
+      
+            .title {
+              font-size: 22px;
+              color: #444;
+              margin-bottom: 24px;
+            }
+      
+            .sub-title {
+              font-size: 20px;
+              color: #444;
+              margin-bottom: 18px;
+            }
+      
+            .sub-header {
+              font-size: 16px;
+              color: #777;
+              margin-bottom: 4px;
+            }
+      
+            .content {
+              padding: 24px;
+            }
+      
+            .row {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .column {
+              display: flex;
+              flex-direction: column;
+            }
+      
+            .controls {
+              margin-top: 24px;
+            }
+      
+            button {
+              align-items: center;
+              border: none;
+              border-radius: 4px;
+              box-sizing: border-box;
+              display: inline-flex;
+              font-size: 14px;
+              font-weight: 500;
+              height: 33px;
+              justify-content: center;
+              line-height: 32px;
+              min-width: 64px;
+              outline: none;
+              overflow: hidden;
+              padding: 0 8px 0 8px;
+              position: relative;
+              vertical-align: middle;
+              margin: 0;
+              background-color: white;
+            }
+      
+            button:hover {
+              cursor: pointer;
+              background-color: #EEE;
+            }
+      
+            .palette {
+              display: flex;
+              flex-direction: row;
+            }
+      
+            .color {
+              flex: 1;
+              height: 24px;
+              border: 3px solid rgba(0,0,0,0);
+              box-sizing: border-box;
+            }
+      
+            label {
+              padding-right: 4px;
+            }
+      
+            input {
+              width: 80px;
+            }
+          `;
+        }
+      
+      
+        template() {
+          return html`
+            <div class="container">
+              <div class="content">
+                <div class="title">Save</div>
+      
+                <div class="row">
+                  <label for="label">Label:</label>
+                  <input name="label">
+                </div>
+      
+                <br/>
+      
+                <div class="column">
+                  ${this.palettes.map((p, i) => html`
+                    <div class="palette">
+                      ${p.map((c, j) => html`<div class="color" style="background-color: ${ColorUtils.ArrayToRBGA(p[j])};" id="settings-color:${i}-${j}"></div>`).join('\n')}
+                    </div>
+                  `)}
+                </div>
+      
+                <br/>
+      
+                <div class="controls">
+                  <button id="save-button">save</button>
                 </div>
               </div>
             </div>
@@ -6409,6 +7132,13 @@
           //   [139, 133, 109, 1],
           //   [34, 34, 34, 1],
           //   [11, 13, 13, 1],
+          //   [0, 0, 0, 1]
+          // ]);
+      
+          // this.paletteTool.setPalette(0, [
+          //   [208, 32, 127, 1],
+          //   [153, 23, 93, 1],
+          //   [97, 15, 59, 1],
           //   [0, 0, 0, 1]
           // ]);
         }
@@ -6534,9 +7264,16 @@
               </div>
               <div class="settings-container">
                 <palette-tool count="4" color-count="4"></palette-tool>
+      
+                <div class="divider"></div>
+      
                 <div style="padding: 10px;">
                   <button id="mapper-button">Convert cavas colors to Palette</button>
                 </div>
+      
+                <div class="divider"></div>
+      
+                <settings-tool></settings-tool>
               </div>
             </div>
           `;
@@ -6553,6 +7290,8 @@
     
     <!-- --- Styles --- -->
     <style>
+      
+      
       
       
       
@@ -6601,9 +7340,16 @@
         </div>
         <div class="settings-container">
           <palette-tool count="4" color-count="4"></palette-tool>
+      
+          <div class="divider"></div>
+      
           <div style="padding: 10px;">
             <button id="mapper-button">Convert cavas colors to Palette</button>
           </div>
+      
+          <div class="divider"></div>
+      
+          <settings-tool></settings-tool>
         </div>
       </div>
     </render-block-page>

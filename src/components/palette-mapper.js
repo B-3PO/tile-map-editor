@@ -211,7 +211,7 @@ customElements.define('palette-mapper', class extends HTMLElementExtended {
     });
     if (this.shadowRoot.querySelector('input[type="checkbox"]').checked) {
       this.settings.saveColorMap({
-        label: 'one',
+        label: Date.now(),
         map: {
           originalColors: this.colors,
           originalPalettes: palettes,
