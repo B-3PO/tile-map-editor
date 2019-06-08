@@ -119,7 +119,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
         cFile,
         hFile
       } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
-      return;
+
       const link = document.createElement('a');
       link.download = `${this.fileName}.h`;
       link.href = this.getDataBlob(cFile);
@@ -137,7 +137,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
         zFile,
         hFile
       } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
-      return;
+
       const link2 = document.createElement('a');
       link2.download = `${this.fileName}.z80`;
       link2.href = this.getDataBlob(zFile);
@@ -156,7 +156,6 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
         hFile
       } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
 
-      return;
       const link2 = document.createElement('a');
       link2.download = `${this.fileName}.s`;
       link2.href = this.getDataBlob(sFile);
