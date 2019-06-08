@@ -21,7 +21,6 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     this.bound_cancel = this.cancel.bind(this);
     this.bound_conversionClick = this.conversionClick.bind(this);
     this.bound_colorClick = this.colorClick.bind(this);
-    this.bound_paletteClick = this.paletteClick.bind(this);
 
     this.cloneTemplate();
   }
@@ -49,7 +48,6 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('.conversion-container').addEventListener('click', this.bound_conversionClick);
     this.shadowRoot.querySelector('.colors-container').addEventListener('click', this.bound_colorClick);
     this.shadowRoot.querySelector('.all-colors-container').addEventListener('click', this.bound_colorClick);
-    this.shadowRoot.querySelector('.palette-container').addEventListener('click', this.bound_paletteClick);
   }
 
   removeEvents() {
@@ -59,7 +57,6 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
     this.shadowRoot.querySelector('.conversion-container').removeEventListener('click', this.bound_conversionClick);
     this.shadowRoot.querySelector('.colors-container').removeEventListener('click', this.bound_colorClick);
     this.shadowRoot.querySelector('.all-colors-container').removeEventListener('click', this.bound_colorClick);
-    this.shadowRoot.querySelector('.palette-container').removeEventListener('click', this.bound_paletteClick);
   }
 
   get tileWidth() {
@@ -161,14 +158,6 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
 
   compareColors(a, b) {
     return ColorUtils.RGBAtoInt(a) === ColorUtils.RGBAtoInt(b);
-  }
-
-  paletteClick(e) {
-    if (this.selectedConversionColor) this.selectedConversionColor.classList.remove('selected');
-    if (this.selectedPaletteColor) this.selectedPaletteColor.classList.remove('selected');
-    this.selectedConversionColor = undefined;
-    this.selectedPaletteColor = e.target;
-    this.selectedPaletteColor.classList.add('selected');
   }
 
   conversionClick(e) {
@@ -389,12 +378,6 @@ customElements.define('tile-palette-fixer', class extends HTMLElementExtended {
               <div class="conversion-container column">
                 ${this.colors.map((c, i) => {
                     return `<div class="color-block" style="background-color: rgba(${this.colorConversions[i] || c})" location="${i}"></div>`;
-                  }).join('\n')}
-              </div>
-
-              <div class="palette-container column">
-                ${this.palette.map((c, i) => {
-                    return `<div class="color-block" style="background-color: rgba(${c})" location="${i}"></div>`;
                   }).join('\n')}
               </div>
             </div>
