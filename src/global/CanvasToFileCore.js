@@ -25,14 +25,13 @@ module.exports = class CanvasToFileCore {
     return str;
   }
 
-  process(fileName, varName) {
+  process(fileName, varName, tileOffset, paletteOffset) {
     this.validityData = this.tilePaletteChecker.check();
     if (this.validityData.valid === false) throw Error('You have invalid tiles, pleach check "Tile validation mode"');
 
     const palettes = this.createPaletteForFile();
-    const tilePaletteArray = this.createTilePaletteArray();
     const tileArray = this.convertTileArray(this.rawTileData, palettes);
-    const dedupedTiles = this.dedupTiles(tileArray);
+    const dedupedTiles = this.dedupTiles(tileArray, tileOffset, paletteOffset);
     const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
     const tileMap = this.createTileMap(dedupedTiles);
 
@@ -41,7 +40,7 @@ module.exports = class CanvasToFileCore {
       tileWidth: this.tileWidth,
       tileHeight: this.tileHeight,
       palettes,
-      tilePaletteArray,
+      tilePaletteArray: dedupedTiles.paletteArray,
       tileArray: flattenedTiles,
       tileMap
     };
@@ -55,9 +54,9 @@ module.exports = class CanvasToFileCore {
     return Math.floor((c / 255) * 31);
   }
 
-  createTilePaletteArray() {
+  createTilePaletteArray(paletteOffset) {
     const { tileData } = this.tilePaletteChecker.check();
-    return tileData.map(d => `0x0${d.palette}`);
+    return tileData.map(d => this.convertNumberToHex(parseInt(d.palette) + paletteOffset));
   }
 
   convertTileArray(tileArray, palettes) {
@@ -101,10 +100,18 @@ module.exports = class CanvasToFileCore {
     return newArr;
   }
 
-  dedupTiles(nestedTiles) {
+  dedupTiles(nestedTiles, tileOffset, paletteOffset) {
+    tileOffset = parseInt(tileOffset || 0);
+    paletteOffset = parseInt(paletteOffset || 0);
     const tiles = this.arrayUnique(nestedTiles);
-    const mapping = nestedTiles.map(a => tiles.findIndex(b => this.compareTiles(a, b)));
-    return { tiles, mapping };
+    const mapping = nestedTiles.map(a => tiles.findIndex(b => this.compareTiles(a, b))).map(v => v + tileOffset);
+    const allPaletteArray = this.createTilePaletteArray(paletteOffset);
+    const paletteArrayObj = mapping.reduce((a, b) => {
+      a[mapping[b]] = allPaletteArray[mapping[b]];
+      return a;
+    }, {});
+    const paletteArray = Object.keys(paletteArrayObj).sort().map(k => paletteArrayObj[k]);
+    return { tiles, mapping, paletteArray };
   }
 
   compareTiles(one, two) {
@@ -132,6 +139,10 @@ module.exports = class CanvasToFileCore {
 
   createTileMap({ mapping }) {
     return Object.keys(mapping).reduce((a, key) => a.concat(`0x${('00' + mapping[key].toString(16)).slice(-2).toUpperCase()}`), []);
+  }
+
+  convertNumberToHex(n) {
+    return `0x${('00' + n.toString(16)).slice(-2).toUpperCase()}`;
   }
 
   convertToRGBInt(rgba) {

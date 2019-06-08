@@ -7,7 +7,7 @@ module.exports = class CanvasToGameboyC {
     this.canvasToFileCore = new CanvasToFileCore(canvasElement, paletteToolElement);
   }
 
-  format(fileName, varName) {
+  format(fileName, varName, tileOffset, paletteOffset, includeMap, includePalette) {
     const {
       canvas,
       tileWidth,
@@ -16,29 +16,59 @@ module.exports = class CanvasToGameboyC {
       tilePaletteArray,
       tileArray,
       tileMap
-    } = this.canvasToFileCore.process(fileName, varName);
+    } = this.canvasToFileCore.process(fileName, varName, tileOffset, paletteOffset);
 
-    const tileFile = this.formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-    const tileMapFile = this.formatCMapFile(fileName, varName, tileMap, tileArray);
-    const tileHFile = this.formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray);
-    const tileMapHFile = this.formatHMapFile(fileName, varName, tileMap, tileArray);
+    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
+    const header = this.formatHeader(fileName, palettes.length, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap);
+    const tileData = this.formatTileData(varName, palettes, tilePaletteArray, tileArray, tileDataCount);
+    const tileDataH = this.formatTilesH(varName, palettes);
+
+    let cFile = `${header}\n${tileData}\n`;
+    let hFile = `${header}\n${tileDataH}\n`;
+
+    if (includeMap) {
+      const mapData = this.formatMapData(varName, tileMap, tileArray);
+      const mapH = this.formatMapH(varName);
+
+      cFile += `${mapData}\n`;
+      hFile += `${mapH}\n`;
+    }
 
     return {
-      tileFile,
-      tileHFile,
-      tileMapFile,
-      tileMapHFile
+      cFile,
+      hFile
     };
   }
 
-  formatCFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
-    const tileCount = tilePaletteArray.length;
-    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
+  formatHeader(fileName, tileCount, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap, type = 'c') {
     return stripIndents`
-      ${this.getComentBlock(fileName, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
+      /*
+       ${fileName}.${type}
+
+       Info:
+        Tile size            : ${tileWidth} x ${tileHeight}
+        TileDataCount        : ${tileDataCount}
+        TileMapCount         : ${tileCount}
+        map size             : ${Math.floor(this.canvas.width / tileWidth)} x ${Math.floor(this.canvas.height / tileHeight)}
+        CGB Palette          : 1 Byte per entry.
+        tileOffset           : ${tileOffset}
+        paletteOffset        : ${paletteOffset}
+        Includes palette     : ${!includePalette ? 'false' : 'true'}
+        Includes map         : ${!includeMap ? 'false' : 'true'}
+      */
+    `;
+  }
+
+  formatTileData(varName, palettes, tilePaletteArray, tileArray, tileDataCount) {
+    const tileCount = tilePaletteArray.length;
+    return stripIndents`
+      const UINT8 ${varName}tileWidth = ${this.canvas.tileWidth};
+      const UINT8 ${varName}tileHeight = ${this.canvas.tileHeight};
+      const UINT8 ${varName}tileDataCount = ${tileDataCount};
+      const UINT8 ${varName}tileMapCount = ${tileCount};
 
       /* CGBpalette entries. */
-      unsigned char ${varName}PaletteEntries[${tileCount}] = {
+      unsigned char ${varName}PaletteEntries[${tileDataCount}] = {
         ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
       };
 
@@ -49,11 +79,31 @@ module.exports = class CanvasToGameboyC {
     `;
   }
 
-  formatHFile(fileName, varName, palettes, tilePaletteArray, tileArray) {
-    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
+  formatMapData(varName, mapping) {
     return stripIndents`
-      ${this.getComentBlock(fileName, tilePaletteArray.length, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
+      ${stripIndents`
+      /* map array. */
+      unsigned char ${varName}Map[${mapping.length}] = {`}\n` +
+      this.canvasToFileCore.sliceJoinArr(mapping, 20, '', ',').replace(/,\s*$/, "") +
+      '\n};\n';
+  }
 
+  formatMapH(varName) {
+    return stripIndents`
+      extern UINT8 ${varName}tileWidth;
+      extern UINT8 ${varName}tileHeight;
+      extern UINT8 ${varName}tileDataCount;
+      extern UINT8 ${varName}tileMapCount;
+      extern unsigned char ${varName}PaletteEntries[];
+      extern unsigned char ${varName}[];
+
+      /* map array. */
+      extern unsigned char ${varName}Map[];
+    `;
+  }
+
+  formatTilesH(varName, palettes) {
+    return stripIndents`
       ${palettes.map((palette, i) => {
         return stripIndents`
           /* Gameboy Color palette ${i} */
@@ -64,50 +114,11 @@ module.exports = class CanvasToGameboyC {
         `;
       }).join('\n')}
 
-      /* CGBpalette entries. */
-      extern unsigned char ${varName}PaletteEntries[];
-
       /* Start of tile array. */
       extern unsigned char ${varName}[];
-    `;
-  }
 
-  formatCMapFile(fileName, varName, mapping, tileArray) {
-    const tileCount = mapping.length;
-    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
-    return stripIndents`
-      ${this.getComentBlock(`${fileName}Map`, tileCount, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'c')}
-      ${stripIndents`
-      /* map array. */
-      unsigned char ${varName}Map[${mapping.length}] = {`}\n` +
-      this.canvasToFileCore.sliceJoinArr(mapping, 20, '', ',').replace(/,\s*$/, "") +
-      '\n};\n';
-  }
-
-  formatHMapFile(fileName, varName, mapping, tileArray) {
-    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
-    return stripIndents`
-      ${this.getComentBlock(`${fileName}Map`, mapping.length, tileDataCount, this.canvas.tileWidth, this.canvas.tileHeight, 'h')}
-
-      /* map array. */
-      extern unsigned char ${varName}Map[];
-    `;
-  }
-
-  getComentBlock(fileName, tileCount, tileDataCount, tileWidth, tileHeight, type = 'c') {
-    return stripIndents`
-      /*
-       ${fileName}.${type}
-
-       Tile Source File.
-
-       Info:
-        Tile size            : ${tileWidth} x ${tileHeight}
-        TileDataCount        : ${tileDataCount}
-        TileMapCount         : ${tileCount}
-        map size             : ${Math.floor(this.canvas.width / tileWidth)} x ${Math.floor(this.canvas.height / tileHeight)}
-        CGB Palette          : 1 Byte per entry.
-      */
+      /* CGBpalette entries. */
+      extern unsigned char ${varName}PaletteEntries[];
     `;
   }
 };

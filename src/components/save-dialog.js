@@ -60,6 +60,22 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
     this.paletteTool_ = value;
   }
 
+  get tileOffset() {
+    return this.shadowRoot.querySelector('input[name="tileoffset"]').value;
+  }
+
+  get paletteOffset() {
+    return this.shadowRoot.querySelector('input[name="paletteoffset"]').value;
+  }
+
+  get includeMap() {
+    return this.shadowRoot.querySelector('input[name="includemap"]').checked;
+  }
+
+  get includePalette() {
+    return this.shadowRoot.querySelector('input[name="includepalette"]').checked;
+  }
+
   getDataBlob(data, contentType = 'application/octet-stream') {
     data = btoa(data);
     return `data:${contentType};base64,${data}`;
@@ -71,11 +87,15 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
       this.dispatchEvent(new CustomEvent('save', {
         detail: {
           fileName: this.fileName,
-          filetype: this.filetype
+          filetype: this.filetype,
+          tileOffset: this.tileOffset,
+          paletteOffset: this.paletteOffset,
+          includeMap: this.includeMap,
+          includePalette: this.includePalette
         }
       }));
       this.remove();
-    } catch (e) {}
+    } catch (e) {console.error(e)}
   }
 
   cancel() {
@@ -96,78 +116,55 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
     if (this.filetype === 'c') {
       const cl = new CanvasToGameboyC(this.canvas, this.paletteTool);
       const {
-        tileFile,
-        tileHFile,
-        tileMapFile,
-        tileMapHFile
-      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
-
+        cFile,
+        hFile
+      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
+      return;
       const link = document.createElement('a');
       link.download = `${this.fileName}.h`;
-      link.href = this.getDataBlob(tileHFile);
+      link.href = this.getDataBlob(cFile);
       link.click();
 
       const link2 = document.createElement('a');
-      link2.download = `${this.fileName}.c`;
-      link2.href = this.getDataBlob(tileFile);
+      link2.download = `${this.fileName}.h`;
+      link2.href = this.getDataBlob(hFile);
       link2.click();
-
-      const link3 = document.createElement('a');
-      link3.download = `${this.fileName}Map.h`;
-      link3.href = this.getDataBlob(tileMapHFile);
-      link3.click();
-
-      const link4 = document.createElement('a');
-      link4.download = `${this.fileName}Map.c`;
-      link4.href = this.getDataBlob(tileMapFile);
-      link4.click();
     }
 
     if (this.filetype === 'z80') {
       const cl = new CanvasToGameboyZ80(this.canvas, this.paletteTool);
       const {
-        tileFile,
-        tileMapFile,
-      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
-
+        zFile,
+        hFile
+      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
+      return;
       const link2 = document.createElement('a');
       link2.download = `${this.fileName}.z80`;
-      link2.href = this.getDataBlob(tileFile);
+      link2.href = this.getDataBlob(zFile);
       link2.click();
 
       const link4 = document.createElement('a');
-      link4.download = `${this.fileName}Map.z80`;
-      link4.href = this.getDataBlob(tileMapFile);
+      link4.download = `${this.fileName}.h`;
+      link4.href = this.getDataBlob(hFile);
       link4.click();
     }
 
     if (this.filetype === 's') {
       const cl = new CanvasToGameboyS(this.canvas, this.paletteTool);
       const {
-        tileFile,
-        tileHFile,
-        tileMapFile,
-        tileMapHFile
-      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''));
+        sFile,
+        hFile
+      } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
 
-      const link = document.createElement('a');
-      link.download = `${this.fileName}.h`;
-      link.href = this.getDataBlob(tileHFile);
-      link.click();
-
+      return;
       const link2 = document.createElement('a');
       link2.download = `${this.fileName}.s`;
-      link2.href = this.getDataBlob(tileFile);
+      link2.href = this.getDataBlob(sFile);
       link2.click();
 
-      const link3 = document.createElement('a');
-      link3.download = `${this.fileName}Map.h`;
-      link3.href = this.getDataBlob(tileMapHFile);
-      link3.click();
-
       const link4 = document.createElement('a');
-      link4.download = `${this.fileName}Map.s`;
-      link4.href = this.getDataBlob(tileMapFile);
+      link4.download = `${this.fileName}.h`;
+      link4.href = this.getDataBlob(hFile);
       link4.click();
     }
   }
@@ -274,7 +271,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
           <br/>
 
           <label for="imageType">Image type: </label>
-          <select name="filetype">
+          <select name="filetype" style="margin-top: 6px">
             <option selected value="c">GBDK (c, h)</option>
             <option value="z80">z80 (asssembly)</option>
             <option value="s">s (asssembly)</option>
@@ -282,6 +279,26 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
             <option value="image/jpg">JPG</option>
             <option value="image/gif">GIF</option>
           </select>
+
+          <div style="margin-top: 12px">
+            <label for="tileoffset">Tile offset:</label>
+            <input type="number" name="tileoffset" value="0" style="width: 40px">
+          </div>
+
+          <div style="margin-top: 6px">
+            <label for="paletteoffset">Palette offset:</label>
+            <input type="number" name="paletteoffset" value="0" style="width: 40px">
+          </div>
+
+          <div style="margin-top: 6px">
+            <label for="includemap">include map:</label>
+            <input type="checkbox" name="includemap" checked>
+          </div>
+
+          <div style="margin-top: 6px">
+            <label for="includepalette">include palette:</label>
+            <input type="checkbox" name="includepalette" checked>
+          </div>
 
           <div class="controls">
             <button id="save-button">save</button>
