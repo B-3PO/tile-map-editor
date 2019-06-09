@@ -121,7 +121,7 @@ customElements.define('save-dialog', class extends HTMLElementExtended {
       } = cl.format(this.fileName, this.fileName.replace(/-/g, ''), this.tileOffset, this.paletteOffset, this.includeMap, this.includePalette);
 
       const link = document.createElement('a');
-      link.download = `${this.fileName}.h`;
+      link.download = `${this.fileName}.c`;
       link.href = this.getDataBlob(cFile);
       link.click();
 
