@@ -263,10 +263,10 @@
       
           const palettes = this.createPaletteForFile();
           const tileArray = this.convertTileArray(this.rawTileData, palettes);
+          const tilePaletteArray = this.createTilePaletteArray(parseInt(paletteOffset));
           const dedupedTiles = this.dedupTiles(tileArray, tileOffset, paletteOffset);
           const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
           const tileMap = this.createTileMap(dedupedTiles);
-          const tilePaletteArray = this.createTilePaletteArray(paletteOffset);
           const tileDataCount = flattenedTiles.length / (this.canvas.tileWidth * 2);
           const tilesX = Math.floor(this.canvas.width / this.canvas.tileWidth);
           const tilesY = Math.floor(this.canvas.height / this.canvas.tileHeight);
@@ -291,13 +291,10 @@
           return this.palettes.map(palette => palette.map(rgba => this.convertToRGBInt(rgba)));
         }
       
-        convertTo32Range(c) {
-          return Math.floor((c / 255) * 31);
-        }
-      
         createTilePaletteArray(paletteOffset) {
           const { tileData } = this.tilePaletteChecker.check();
-          return tileData.map(d => this.convertNumberToHex(parseInt(d.palette) + paletteOffset));
+          return tileData.map(d => `0x0${parseInt(d.palette) + paletteOffset}`);
+          // return tileData.map(d => this.convertNumberToHex(parseInt(d.palette)));
         }
       
         convertTileArray(tileArray, palettes) {
@@ -425,7 +422,7 @@
       
           const header = this.formatHeader(fileName, palettes.length, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap);
           const tileData = this.formatTileData(varName, tileArray);
-          const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount);
+          const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset);
       
           let cFile = `${header}\n${tileData}\n`;
           let hFile = `${header}\n${tileDataH}\n`;
@@ -433,11 +430,12 @@
           if (includeMap) {
             const mapData = this.formatMapData(varName, tileMap, tilePaletteArray);
             const mapH = this.formatMapH(varName);
+            console.log(mapData);
       
             cFile += `${mapData}\n`;
             hFile += `${mapH}\n`;
           }
-      
+          
           return {
             cFile,
             hFile
@@ -477,7 +475,7 @@
             ${stripIndents`
             /* CGBpalette entries. */
             unsigned char ${varName}PaletteEntries[${tilePaletteArray.length}] = {
-              ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
+              ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 20, '', ',').replace(/,\s*$/, "")}
             };
       
             /* map array. */
@@ -496,15 +494,17 @@
           `;
         }
       
-        formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount) {
+        formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset) {
           return stripIndents`
             /* properties */
-            #define ${varName}tileWidth = ${this.canvas.tileWidth};
-            #define ${varName}tileHeight = ${this.canvas.tileHeight};
-            #define ${varName}tilesX = ${tilesX};
-            #define ${varName}tilesY = ${tilesY};
-            #define ${varName}tileDataCount = ${tileDataCount};
-            #define ${varName}tileMapCount = ${mapCount};
+            #define ${varName}tileWidth ${this.canvas.tileWidth}
+            #define ${varName}tileHeight ${this.canvas.tileHeight}
+            #define ${varName}tilesX ${tilesX}
+            #define ${varName}tilesY ${tilesY}
+            #define ${varName}tileDataCount ${tileDataCount}
+            #define ${varName}tileMapCount ${mapCount}
+            #define ${varName}TileOffset ${tileOffset}
+            #define ${varName}PaletteOffset ${paletteOffset}
       
             ${palettes.map((palette, i) => {
               return stripIndents`
@@ -678,7 +678,7 @@
       
           const header = this.formatHeader(fileName, palettes.length, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap);
           const tileData = this.formatTileData(varName, palettes, tilePaletteArray, tileArray, tileDataCount, tilesX, tilesY);
-          const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount);
+          const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset);
       
           let zFile = `${header}\n${tileData}\n`;
           let hFile = `${header}\n${tileDataH}\n`;
@@ -754,15 +754,17 @@
           `;
         }
       
-        formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount) {
+        formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset) {
           return stripIndents`
             /* properties */
-            #define ${varName}tileWidth = ${this.canvas.tileWidth};
-            #define ${varName}tileHeight = ${this.canvas.tileHeight};
-            #define ${varName}tilesX = ${tilesX};
-            #define ${varName}tilesY = ${tilesY};
-            #define ${varName}tileDataCount = ${tileDataCount};
-            #define ${varName}tileMapCount = ${mapCount};
+            #define ${varName}tileWidth ${this.canvas.tileWidth}
+            #define ${varName}tileHeight ${this.canvas.tileHeight}
+            #define ${varName}tilesX ${tilesX}
+            #define ${varName}tilesY ${tilesY}
+            #define ${varName}tileDataCount ${tileDataCount}
+            #define ${varName}tileMapCount ${mapCount}
+            #define ${varName}TileOffset ${tileOffset}
+            #define ${varName}PaletteOffset ${paletteOffset}
       
             ${palettes.map((palette, i) => {
               return stripIndents`

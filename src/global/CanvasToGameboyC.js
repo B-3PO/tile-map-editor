@@ -24,7 +24,7 @@ module.exports = class CanvasToGameboyC {
 
     const header = this.formatHeader(fileName, palettes.length, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap);
     const tileData = this.formatTileData(varName, tileArray);
-    const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount);
+    const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset);
 
     let cFile = `${header}\n${tileData}\n`;
     let hFile = `${header}\n${tileDataH}\n`;
@@ -32,11 +32,12 @@ module.exports = class CanvasToGameboyC {
     if (includeMap) {
       const mapData = this.formatMapData(varName, tileMap, tilePaletteArray);
       const mapH = this.formatMapH(varName);
+      console.log(mapData);
 
       cFile += `${mapData}\n`;
       hFile += `${mapH}\n`;
     }
-
+    
     return {
       cFile,
       hFile
@@ -76,7 +77,7 @@ module.exports = class CanvasToGameboyC {
       ${stripIndents`
       /* CGBpalette entries. */
       unsigned char ${varName}PaletteEntries[${tilePaletteArray.length}] = {
-        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
+        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 20, '', ',').replace(/,\s*$/, "")}
       };
 
       /* map array. */
@@ -95,15 +96,17 @@ module.exports = class CanvasToGameboyC {
     `;
   }
 
-  formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount) {
+  formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset) {
     return stripIndents`
       /* properties */
-      #define ${varName}tileWidth = ${this.canvas.tileWidth};
-      #define ${varName}tileHeight = ${this.canvas.tileHeight};
-      #define ${varName}tilesX = ${tilesX};
-      #define ${varName}tilesY = ${tilesY};
-      #define ${varName}tileDataCount = ${tileDataCount};
-      #define ${varName}tileMapCount = ${mapCount};
+      #define ${varName}tileWidth ${this.canvas.tileWidth}
+      #define ${varName}tileHeight ${this.canvas.tileHeight}
+      #define ${varName}tilesX ${tilesX}
+      #define ${varName}tilesY ${tilesY}
+      #define ${varName}tileDataCount ${tileDataCount}
+      #define ${varName}tileMapCount ${mapCount}
+      #define ${varName}TileOffset ${tileOffset}
+      #define ${varName}PaletteOffset ${paletteOffset}
 
       ${palettes.map((palette, i) => {
         return stripIndents`

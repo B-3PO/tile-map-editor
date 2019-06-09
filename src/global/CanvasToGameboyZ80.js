@@ -24,7 +24,7 @@ module.exports = class CanvasToGameboyZ80 {
 
     const header = this.formatHeader(fileName, palettes.length, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap);
     const tileData = this.formatTileData(varName, palettes, tilePaletteArray, tileArray, tileDataCount, tilesX, tilesY);
-    const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount);
+    const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset);
 
     let zFile = `${header}\n${tileData}\n`;
     let hFile = `${header}\n${tileDataH}\n`;
@@ -100,15 +100,17 @@ module.exports = class CanvasToGameboyZ80 {
     `;
   }
 
-  formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount) {
+  formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount, tileOffset, paletteOffset) {
     return stripIndents`
       /* properties */
-      #define ${varName}tileWidth = ${this.canvas.tileWidth};
-      #define ${varName}tileHeight = ${this.canvas.tileHeight};
-      #define ${varName}tilesX = ${tilesX};
-      #define ${varName}tilesY = ${tilesY};
-      #define ${varName}tileDataCount = ${tileDataCount};
-      #define ${varName}tileMapCount = ${mapCount};
+      #define ${varName}tileWidth ${this.canvas.tileWidth}
+      #define ${varName}tileHeight ${this.canvas.tileHeight}
+      #define ${varName}tilesX ${tilesX}
+      #define ${varName}tilesY ${tilesY}
+      #define ${varName}tileDataCount ${tileDataCount}
+      #define ${varName}tileMapCount ${mapCount}
+      #define ${varName}TileOffset ${tileOffset}
+      #define ${varName}PaletteOffset ${paletteOffset}
 
       ${palettes.map((palette, i) => {
         return stripIndents`
