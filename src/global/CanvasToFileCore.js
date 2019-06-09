@@ -34,15 +34,24 @@ module.exports = class CanvasToFileCore {
     const dedupedTiles = this.dedupTiles(tileArray, tileOffset, paletteOffset);
     const flattenedTiles = dedupedTiles.tiles.reduce((a, b) => a.concat(b), []);
     const tileMap = this.createTileMap(dedupedTiles);
+    const tilePaletteArray = this.createTilePaletteArray(paletteOffset);
+    const tileDataCount = flattenedTiles.length / (this.canvas.tileWidth * 2);
+    const tilesX = Math.floor(this.canvas.width / this.canvas.tileWidth);
+    const tilesY = Math.floor(this.canvas.height / this.canvas.tileHeight);
+    const mapCount = tilesX * tilesY;
 
     return {
       canvas: this.canvas,
       tileWidth: this.tileWidth,
       tileHeight: this.tileHeight,
       palettes,
-      tilePaletteArray: dedupedTiles.paletteArray,
+      tilePaletteArray,
       tileArray: flattenedTiles,
-      tileMap
+      tileMap,
+      tileDataCount,
+      tilesX,
+      tilesY,
+      mapCount
     };
   }
 

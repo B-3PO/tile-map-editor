@@ -15,19 +15,22 @@ module.exports = class CanvasToGameboyC {
       palettes,
       tilePaletteArray,
       tileArray,
-      tileMap
+      tileMap,
+      tileDataCount,
+      tilesX,
+      tilesY,
+      mapCount
     } = this.canvasToFileCore.process(fileName, varName, tileOffset, paletteOffset);
 
-    const tileDataCount = tileArray.length / (this.canvas.tileWidth * 2);
     const header = this.formatHeader(fileName, palettes.length, tileDataCount, tileWidth, tileHeight, tileOffset, paletteOffset, includePalette, includeMap);
-    const tileData = this.formatTileData(varName, palettes, tilePaletteArray, tileArray, tileDataCount);
-    const tileDataH = this.formatTilesH(varName, palettes);
+    const tileData = this.formatTileData(varName, tileArray);
+    const tileDataH = this.formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount);
 
     let cFile = `${header}\n${tileData}\n`;
     let hFile = `${header}\n${tileDataH}\n`;
 
     if (includeMap) {
-      const mapData = this.formatMapData(varName, tileMap, tileArray);
+      const mapData = this.formatMapData(varName, tileMap, tilePaletteArray);
       const mapH = this.formatMapH(varName);
 
       cFile += `${mapData}\n`;
@@ -59,19 +62,8 @@ module.exports = class CanvasToGameboyC {
     `;
   }
 
-  formatTileData(varName, palettes, tilePaletteArray, tileArray, tileDataCount) {
-    const tileCount = tilePaletteArray.length;
+  formatTileData(varName, tileArray) {
     return stripIndents`
-      const UINT8 ${varName}tileWidth = ${this.canvas.tileWidth};
-      const UINT8 ${varName}tileHeight = ${this.canvas.tileHeight};
-      const UINT8 ${varName}tileDataCount = ${tileDataCount};
-      const UINT8 ${varName}tileMapCount = ${tileCount};
-
-      /* CGBpalette entries. */
-      unsigned char ${varName}PaletteEntries[${tileDataCount}] = {
-        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
-      };
-
       /* Start of tile array. */
       unsigned char ${varName}[${tileArray.length}] = {
         ${this.canvasToFileCore.sliceJoinArr(tileArray, 16, '', ',').replace(/,\s*$/, "")}
@@ -79,9 +71,14 @@ module.exports = class CanvasToGameboyC {
     `;
   }
 
-  formatMapData(varName, mapping) {
+  formatMapData(varName, mapping, tilePaletteArray) {
     return stripIndents`
       ${stripIndents`
+      /* CGBpalette entries. */
+      unsigned char ${varName}PaletteEntries[${tilePaletteArray.length}] = {
+        ${this.canvasToFileCore.sliceJoinArr(tilePaletteArray, 8, '', ',').replace(/,\s*$/, "")}
+      };
+
       /* map array. */
       unsigned char ${varName}Map[${mapping.length}] = {`}\n` +
       this.canvasToFileCore.sliceJoinArr(mapping, 20, '', ',').replace(/,\s*$/, "") +
@@ -90,20 +87,24 @@ module.exports = class CanvasToGameboyC {
 
   formatMapH(varName) {
     return stripIndents`
-      extern UINT8 ${varName}tileWidth;
-      extern UINT8 ${varName}tileHeight;
-      extern UINT8 ${varName}tileDataCount;
-      extern UINT8 ${varName}tileMapCount;
+      /* CGBpalette entries. */
       extern unsigned char ${varName}PaletteEntries[];
-      extern unsigned char ${varName}[];
 
       /* map array. */
       extern unsigned char ${varName}Map[];
     `;
   }
 
-  formatTilesH(varName, palettes) {
+  formatTilesH(varName, palettes, tileDataCount, tilesX, tilesY, mapCount) {
     return stripIndents`
+      /* properties */
+      #define ${varName}tileWidth = ${this.canvas.tileWidth};
+      #define ${varName}tileHeight = ${this.canvas.tileHeight};
+      #define ${varName}tilesX = ${tilesX};
+      #define ${varName}tilesY = ${tilesY};
+      #define ${varName}tileDataCount = ${tileDataCount};
+      #define ${varName}tileMapCount = ${mapCount};
+
       ${palettes.map((palette, i) => {
         return stripIndents`
           /* Gameboy Color palette ${i} */
@@ -116,9 +117,6 @@ module.exports = class CanvasToGameboyC {
 
       /* Start of tile array. */
       extern unsigned char ${varName}[];
-
-      /* CGBpalette entries. */
-      extern unsigned char ${varName}PaletteEntries[];
     `;
   }
 };
