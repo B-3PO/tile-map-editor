@@ -435,7 +435,7 @@
             cFile += `${mapData}\n`;
             hFile += `${mapH}\n`;
           }
-          
+      
           return {
             cFile,
             hFile
@@ -503,7 +503,7 @@
             #define ${varName}tilesY ${tilesY}
             #define ${varName}tileDataCount ${tileDataCount}
             #define ${varName}tileMapCount ${mapCount}
-            #define ${varName}TileOffset ${tileOffset}
+            #define ${varName}tileOffset ${tileOffset}
             #define ${varName}PaletteOffset ${paletteOffset}
       
             ${palettes.map((palette, i) => {
@@ -763,7 +763,7 @@
             #define ${varName}tilesY ${tilesY}
             #define ${varName}tileDataCount ${tileDataCount}
             #define ${varName}tileMapCount ${mapCount}
-            #define ${varName}TileOffset ${tileOffset}
+            #define ${varName}tileOffset ${tileOffset}
             #define ${varName}PaletteOffset ${paletteOffset}
       
             ${palettes.map((palette, i) => {

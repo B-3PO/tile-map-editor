@@ -37,7 +37,7 @@ module.exports = class CanvasToGameboyC {
       cFile += `${mapData}\n`;
       hFile += `${mapH}\n`;
     }
-    
+
     return {
       cFile,
       hFile
@@ -105,7 +105,7 @@ module.exports = class CanvasToGameboyC {
       #define ${varName}tilesY ${tilesY}
       #define ${varName}tileDataCount ${tileDataCount}
       #define ${varName}tileMapCount ${mapCount}
-      #define ${varName}TileOffset ${tileOffset}
+      #define ${varName}tileOffset ${tileOffset}
       #define ${varName}PaletteOffset ${paletteOffset}
 
       ${palettes.map((palette, i) => {

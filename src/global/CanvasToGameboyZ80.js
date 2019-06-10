@@ -109,7 +109,7 @@ module.exports = class CanvasToGameboyZ80 {
       #define ${varName}tilesY ${tilesY}
       #define ${varName}tileDataCount ${tileDataCount}
       #define ${varName}tileMapCount ${mapCount}
-      #define ${varName}TileOffset ${tileOffset}
+      #define ${varName}tileOffset ${tileOffset}
       #define ${varName}PaletteOffset ${paletteOffset}
 
       ${palettes.map((palette, i) => {
